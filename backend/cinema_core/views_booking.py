@@ -404,6 +404,11 @@ class PaymentVerifyView(APIView):
         is_mock = razorpay_order_id.startswith("mock_order_")
         if not is_mock:
             secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
+            if not secret:
+                return Response(
+                    {"error": "Payment verification not configured."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
             msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode()
             expected = hmac.new(
                 secret.encode(), msg, hashlib.sha256
@@ -625,6 +630,14 @@ class MyBookingsView(APIView):
             return Response(
                 {"error": "email query parameter is required."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Security: prevent horizontal privilege escalation.
+        # An authenticated user may only fetch their own booking history.
+        if request.user.email.lower() != email.lower():
+            return Response(
+                {"error": "You can only view your own booking history."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         queryset = (

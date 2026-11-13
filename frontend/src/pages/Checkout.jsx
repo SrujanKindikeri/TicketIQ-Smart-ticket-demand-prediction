@@ -36,6 +36,7 @@ export default function Checkout({
   const [form, setForm] = useState({ customer_name: "", customer_email: "", customer_phone: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [testModeData, setTestModeData] = useState(null); // { orderId, bookingRef }
   const countdown = useCountdown(expiresAt);
   const rzpRef = useRef(null);
 
@@ -112,10 +113,8 @@ export default function Checkout({
       } else {
         // Test / sandbox mode — store booking_reference for simulate button
         setSubmitting(false);
-        // Store order ID for simulate
         rzpRef.current = { order_id: razorpay_order_id, booking_reference };
-        // Show test mode UI by setting a flag via error-free mechanism
-        setError("__TEST_MODE__:" + razorpay_order_id + ":" + booking_reference);
+        setTestModeData({ orderId: razorpay_order_id, bookingRef: booking_reference });
       }
     } catch (err) {
       const data = err.response?.data;
@@ -127,9 +126,7 @@ export default function Checkout({
   async function simulatePayment() {
     setSubmitting(true);
     setError("");
-    const parts = error.split(":");
-    const orderId = parts[1];
-    const bookingRef = parts[2];
+    const { orderId, bookingRef } = testModeData;
 
     try {
       await axios.post(`${API}payments/verify/`, {
@@ -147,8 +144,8 @@ export default function Checkout({
     }
   }
 
-  const isTestMode = error.startsWith("__TEST_MODE__");
-  const realError = isTestMode ? "" : error;
+  const isTestMode = testModeData !== null;
+  const realError = error;
 
   return (
     <div className="checkout-page">

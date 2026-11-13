@@ -44,15 +44,15 @@ class AuthPermissionTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_my_bookings_returns_only_own(self):
-        # Create a regular user and two bookings with different emails.
+        # Create a regular user whose email matches what they will query.
         regular_user = User.objects.create_user(
             username="regular_user_auth",
             password="pass",
-            email="user1@example.com",
+            email="email1@example.com",
         )
         self.client.force_login(regular_user)
 
-        # Booking for email1.
+        # Booking for email1 (the authenticated user's email).
         Booking.objects.create(
             show=self.show,
             customer_name="User One",
@@ -62,7 +62,7 @@ class AuthPermissionTests(TestCase):
             total_amount=150,
             status=Booking.Status.CONFIRMED,
         )
-        # Booking for email2.
+        # Booking for email2 (a different customer — must NOT appear in results).
         Booking.objects.create(
             show=self.show,
             customer_name="User Two",
@@ -73,12 +73,17 @@ class AuthPermissionTests(TestCase):
             status=Booking.Status.CONFIRMED,
         )
 
+        # Querying own email must succeed and return only own bookings.
         response = self.client.get("/api/bookings/my/?email=email1@example.com")
         self.assertEqual(response.status_code, 200)
 
         results = response.data.get("results", response.data)
         for booking in results:
             self.assertNotEqual(booking["customer_email"], "email2@example.com")
+
+        # Querying another user's email must be rejected.
+        cross_resp = self.client.get("/api/bookings/my/?email=email2@example.com")
+        self.assertEqual(cross_resp.status_code, 403)
 
     def test_seat_generate_requires_staff(self):
         # Anonymous POST to generate must be rejected.
