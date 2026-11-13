@@ -17,6 +17,7 @@ from .models import (
     Movie,
     Show,
     Booking,
+    BookingSeat,
     Prediction,
     CinemaSeat,
     SeatReservation,
@@ -163,6 +164,14 @@ class BookingViewSet(viewsets.ModelViewSet):
                 booking=booking,
                 status=SeatReservation.Status.BOOKED,
             ).delete()
+
+            # Also remove BookingSeat records so seats are freed.
+            BookingSeat.objects.filter(booking=booking).delete()
+
+            # If payment was pending, mark it failed.
+            if booking.payment_status == "pending":
+                booking.payment_status = "failed"
+                booking.save(update_fields=["payment_status"])
 
         return Response({
             "message": "Booking cancelled and seats restored.",

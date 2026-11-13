@@ -1,0 +1,42 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Implement all 13 new backend API endpoints in views_booking.py, add serializers to serializers.py, wire URLs in urls.py, and register new models in admin.py. Depends on FEAT-001 (models must exist).",
+  "status": "completed",
+  "steps": [
+    "Read backend/cinema_core/views.py, serializers.py, urls.py, admin.py fully before editing any of them.",
+    "Append to backend/cinema_core/serializers.py: PaymentSerializer (ModelSerializer for Payment, all fields); BookingSeatSerializer (fields: id, booking, seat, seat_label via SerializerMethodField returning f'{obj.seat.row}{obj.seat.seat_number}', category from seat.category, price_at_booking); BookingDetailSerializer (extends BookingSerializer, adds nested booking_seats=BookingSeatSerializer(many=True,read_only=True) and payment=PaymentSerializer(read_only=True)); SeatAvailabilitySerializer (non-model serializer with fields: id, row, seat_number, label, category, price, status).",
+    "Create backend/cinema_core/views_booking.py with these view classes — read views.py first to match patterns exactly:",
+    "  ShowAvailabilityView(APIView, AllowAny): GET /api/shows/<show_id>/availability/. Release expired holds (SeatReservation.objects.filter(show=show,status=HELD,expires_at__lte=now).delete()). Return list of seats with status (available/held/booked) and the caller's own hold_token from request header X-Hold-Token if provided (mark those seats as 'yours'). Include show metadata.",
+    "  HoldSeatsView(APIView, AllowAny): POST /api/shows/<show_id>/hold/ — body {seat_ids:[...]}. In transaction.atomic() with select_for_update(): validate all seat_ids belong to show.cinema, none have non-expired reservations. Create SeatReservation(show,seat,status=HELD,hold_token=shared_uuid,expires_at=now+timedelta(minutes=5)) for each. Return {session_token:str(hold_token), expires_at:iso, seats:[{id,label,category,price}]}. DELETE /api/shows/<show_id>/hold/ — body {session_token:...}. Delete all HELD SeatReservations with that hold_token for this show.",
+    "  CreateBookingView(APIView, AllowAny): POST /api/bookings/create/ — body {hold_token, customer_name, customer_email, customer_phone}. In transaction.atomic(): fetch SeatReservation rows with hold_token and status=HELD for the show, validate none expired, calculate total=sum(show.ticket_price * seat.price_multiplier for each seat). Create Booking(show,customer_name,customer_email,customer_phone,tickets_count=len(seats),total_amount=total,status=PENDING,payment_status='pending'). Create BookingSeat rows with price_at_booking. Update SeatReservation(booking=booking,status=BOOKED). Attempt Razorpay order creation using RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET from os.environ; on ImportError/KeyError/Exception use mock order id f'mock_order_{uuid.uuid4().hex[:16]}'. Create Payment(booking,razorpay_order_id,status='pending',amount=total). Return {booking_id,booking_reference:str(booking.booking_reference),razorpay_order_id,razorpay_key_id:os.environ.get('RAZORPAY_KEY_ID','')}.",
+    "  PaymentVerifyView(APIView, AllowAny): POST /api/payments/verify/ — body {razorpay_order_id,razorpay_payment_id,razorpay_signature}. Fetch Payment by razorpay_order_id. If mock order (starts 'mock_order_') skip signature check. Else verify HMAC-SHA256(key=secret, msg=f'{order_id}|{payment_id}') == signature. If valid or mock: Payment.status='paid', Payment.razorpay_payment_id=..., Payment.razorpay_signature=... . Booking.status=CONFIRMED, Booking.payment_status='paid'. Increment show.tickets_booked += booking.tickets_count. Idempotent: if already confirmed, return success. Return {success:true,booking_reference:str(booking.booking_reference)}.",
+    "  TicketView(APIView, AllowAny): GET /api/bookings/<booking_reference>/ticket/. Fetch Booking by booking_reference (UUID). Build PDF with reportlab (A4 portrait): header 'TicketIQ' in bold large font, booking reference as text, movie/cinema/show_date/show_time, seat list from BookingSeat.objects.filter(booking=booking).select_related('seat'), total_amount, payment_status. Generate QR code (qrcode library) encoding only the booking_reference UUID string. Embed QR code image in PDF via ImageReader. Return HttpResponse with content_type='application/pdf' and Content-Disposition header.",
+    "  BookingVerifyView(APIView, AllowAny): GET /api/bookings/<booking_reference>/verify/. Return {booking_reference, movie_title, cinema_name, show_date, show_time, seats:[{label,category}], tickets_count, total_amount, status, payment_status}. No customer_name, customer_email, customer_phone in response.",
+    "  MyBookingsView(APIView, IsAuthenticated): GET /api/bookings/my/?email=<email>. Filter Booking.objects.filter(customer_email=email).select_related('show','show__movie','show__cinema').prefetch_related('booking_seats__seat').order_by('-booked_at'). Return paginated list with BookingDetailSerializer. Add code comment: 'TODO: replace email query param with session auth once customer login UI is built'.",
+    "  AdminBookingsView(APIView, IsAdminUser): GET /api/admin/bookings/. Accept query params: status, movie_id, cinema_id, date, search (customer name/email). Return paginated BookingDetailSerializer. Use PageNumberPagination with page_size=20.",
+    "  AdminBookingStatsView(APIView, IsAdminUser): GET /api/admin/bookings/stats/. Return total_bookings, confirmed_bookings, cancelled_bookings, pending_bookings, total_tickets_sold, total_revenue, revenue_by_movie (top 5), revenue_by_cinema (top 5).",
+    "  CinemaSeatListView(APIView, IsAdminUser): GET /api/cinemas/<cinema_id>/seats/. Return all CinemaSeat rows (including inactive) for the cinema with CinemaSeatSerializer.",
+    "  CinemaCapacityView(APIView, AllowAny): GET /api/cinemas/<cinema_id>/capacity/. Return {cinema_id, total_active_seats: CinemaSeat.objects.filter(cinema_id=cinema_id,is_active=True).count()}.",
+    "Extend BookingViewSet.cancel action in views.py: after the existing SeatReservation delete line, add BookingSeat.objects.filter(booking=booking).delete(). Import BookingSeat at top of views.py. If booking.payment_status was 'pending', also set payment_status='failed'. Add BookingSeat to imports.",
+    "Append to backend/cinema_core/urls.py (before the router include): all new path() entries — shows/<int:show_id>/availability/, shows/<int:show_id>/hold/, bookings/create/, payments/verify/, bookings/<str:booking_reference>/ticket/, bookings/<str:booking_reference>/verify/, bookings/my/, admin/bookings/, admin/bookings/stats/, cinemas/<int:cinema_id>/seats/, cinemas/<int:cinema_id>/capacity/. Import all new view classes from .views_booking.",
+    "Update backend/cinema_core/admin.py: import Payment, BookingSeat from .models and register them with admin.site.register().",
+    "Run python backend/manage.py check. Fix any import or syntax errors.",
+    "Set FEAT-002 status to 'completed' and record findings."
+  ],
+  "acceptance_criteria": [
+    "python backend/manage.py check exits 0.",
+    "GET /api/shows/1/availability/ (or any valid show id) returns HTTP 200 or 404, never 500.",
+    "POST /api/shows/1/hold/ with valid seat_ids returns {session_token, expires_at, seats}.",
+    "POST /api/bookings/create/ with a valid hold_token returns {booking_id, booking_reference, razorpay_order_id, razorpay_key_id}.",
+    "POST /api/payments/verify/ with mock order id returns {success: true, booking_reference}.",
+    "GET /api/bookings/<ref>/ticket/ returns Content-Type: application/pdf.",
+    "GET /api/admin/bookings/ without auth returns 403.",
+    "GET /api/cinemas/1/capacity/ returns {cinema_id, total_active_seats}."
+  ],
+  "verification": [
+    "python backend/manage.py check"
+  ],
+  "blocked_reason": null,
+  "findings": "All 13 endpoints implemented in views_booking.py. Serializers (PaymentSerializer, BookingSeatSerializer, BookingDetailSerializer, SeatAvailabilitySerializer) appended to serializers.py. URLs wired in urls.py. Payment and BookingSeat registered in admin.py. BookingViewSet.cancel extended with BookingSeat.objects.filter(booking=booking).delete() and payment_status='failed' for pending payments. razorpay, reportlab, qrcode[pil] installed. hmac.new used for Razorpay signature verification; mock order path skips signature check. manage.py check exits 0 with no issues."
+}

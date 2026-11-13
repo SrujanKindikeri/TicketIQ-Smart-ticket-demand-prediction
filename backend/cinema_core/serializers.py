@@ -81,3 +81,57 @@ class SeatReservationSerializer(serializers.ModelSerializer):
 
     def get_seat_label(self, obj):
         return f"{obj.seat.row}{obj.seat.seat_number}"
+
+
+# =====================================================
+# FEAT-002 SERIALIZERS
+# =====================================================
+
+from .models import Payment, BookingSeat
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = "__all__"
+
+
+class BookingSeatSerializer(serializers.ModelSerializer):
+    seat_label = serializers.SerializerMethodField()
+    category = serializers.CharField(
+        source="seat.category",
+        read_only=True,
+    )
+
+    class Meta:
+        model = BookingSeat
+        fields = [
+            "id",
+            "booking",
+            "seat",
+            "seat_label",
+            "category",
+            "price_at_booking",
+        ]
+
+    def get_seat_label(self, obj):
+        return f"{obj.seat.row}{obj.seat.seat_number}"
+
+
+class BookingDetailSerializer(BookingSerializer):
+    booking_seats = BookingSeatSerializer(many=True, read_only=True)
+    payment = PaymentSerializer(read_only=True)
+
+    class Meta(BookingSerializer.Meta):
+        fields = "__all__"
+
+
+class SeatAvailabilitySerializer(serializers.Serializer):
+    """Non-model serializer for individual seat availability data."""
+    id = serializers.IntegerField()
+    row = serializers.CharField()
+    seat_number = serializers.IntegerField()
+    label = serializers.CharField()
+    category = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    status = serializers.CharField()

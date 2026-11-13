@@ -1,6 +1,6 @@
 
 from django.contrib import admin
-from .models import Cinema, Movie, Show, Booking, Prediction
+from .models import Cinema, Movie, Show, Booking, Prediction, Payment, BookingSeat
 
 
 @admin.register(Cinema)
@@ -52,3 +52,20 @@ class PredictionAdmin(admin.ModelAdmin):
     )
     search_fields = ("model_name",)
     list_filter = ("model_name", "created_at")
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "booking", "razorpay_order_id",
+        "status", "amount", "created_at"
+    )
+    search_fields = ("razorpay_order_id", "razorpay_payment_id", "booking__customer_email")
+    list_filter = ("status", "created_at")
+
+
+@admin.register(BookingSeat)
+class BookingSeatAdmin(admin.ModelAdmin):
+    list_display = ("id", "booking", "seat", "price_at_booking")
+    search_fields = ("booking__customer_name", "booking__customer_email")
+    list_filter = ("seat__category",)

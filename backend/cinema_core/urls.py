@@ -12,6 +12,20 @@ from .views import (
     DashboardView,
 )
 
+from .views_booking import (
+    ShowAvailabilityView,
+    HoldSeatsView,
+    CreateBookingView,
+    PaymentVerifyView,
+    TicketView,
+    BookingVerifyView,
+    MyBookingsView,
+    AdminBookingsView,
+    AdminBookingStatsView,
+    CinemaSeatListView,
+    CinemaCapacityView,
+)
+
 
 # =====================================================
 # API ROUTER
@@ -39,11 +53,88 @@ urlpatterns = [
         name="dashboard",
     ),
 
-    # Show-specific seat availability
+    # Show-specific seat availability (original admin view)
     path(
         "shows/<int:show_id>/seats/",
         ShowSeatView.as_view(),
         name="show-seats",
+    ),
+
+    # FEAT-002: Show availability (public, with hold-token support)
+    path(
+        "shows/<int:show_id>/availability/",
+        ShowAvailabilityView.as_view(),
+        name="show-availability",
+    ),
+
+    # FEAT-002: Seat hold (POST to hold, DELETE to release)
+    path(
+        "shows/<int:show_id>/hold/",
+        HoldSeatsView.as_view(),
+        name="show-hold",
+    ),
+
+    # FEAT-002: Create booking from held seats
+    path(
+        "bookings/create/",
+        CreateBookingView.as_view(),
+        name="booking-create",
+    ),
+
+    # FEAT-002: Payment verification
+    path(
+        "payments/verify/",
+        PaymentVerifyView.as_view(),
+        name="payment-verify",
+    ),
+
+    # FEAT-002: Digital ticket PDF download
+    path(
+        "bookings/<str:booking_reference>/ticket/",
+        TicketView.as_view(),
+        name="booking-ticket",
+    ),
+
+    # FEAT-002: Public booking verification (QR code / kiosk)
+    path(
+        "bookings/<str:booking_reference>/verify/",
+        BookingVerifyView.as_view(),
+        name="booking-verify",
+    ),
+
+    # FEAT-002: Customer booking history (authenticated)
+    path(
+        "bookings/my/",
+        MyBookingsView.as_view(),
+        name="bookings-my",
+    ),
+
+    # FEAT-002: Admin booking list with filters
+    path(
+        "admin/bookings/",
+        AdminBookingsView.as_view(),
+        name="admin-bookings",
+    ),
+
+    # FEAT-002: Admin booking stats
+    path(
+        "admin/bookings/stats/",
+        AdminBookingStatsView.as_view(),
+        name="admin-bookings-stats",
+    ),
+
+    # FEAT-002: Admin cinema seat list (all seats incl. inactive)
+    path(
+        "cinemas/<int:cinema_id>/seats/",
+        CinemaSeatListView.as_view(),
+        name="cinema-seats",
+    ),
+
+    # FEAT-002: Public cinema capacity
+    path(
+        "cinemas/<int:cinema_id>/capacity/",
+        CinemaCapacityView.as_view(),
+        name="cinema-capacity",
     ),
 
     # All router endpoints
