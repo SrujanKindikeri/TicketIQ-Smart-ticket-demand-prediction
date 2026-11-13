@@ -1,0 +1,21 @@
+cinema_id,cinema_name,city,capacity,data_source
+CIN001,TicketIQ Cinema 1,Phagwara,172,synthetic
+CIN002,TicketIQ Cinema 2,Phagwara,186,synthetic
+CIN003,TicketIQ Cinema 3,Chandigarh,100,synthetic
+CIN004,TicketIQ Cinema 4,Phagwara,201,synthetic
+CIN005,TicketIQ Cinema 5,Bangalore,154,synthetic
+CIN006,TicketIQ Cinema 6,Bangalore,167,synthetic
+CIN007,TicketIQ Cinema 7,Chennai,179,synthetic
+CIN008,TicketIQ Cinema 8,Chandigarh,210,synthetic
+CIN009,TicketIQ Cinema 9,Pune,132,synthetic
+CIN010,TicketIQ Cinema 10,Mumbai,167,synthetic
+CIN011,TicketIQ Cinema 11,Hyderabad,117,synthetic
+CIN012,TicketIQ Cinema 12,Mumbai,100,synthetic
+CIN013,TicketIQ Cinema 13,Delhi,137,synthetic
+CIN014,TicketIQ Cinema 14,Pune,168,synthetic
+CIN015,TicketIQ Cinema 15,Delhi,138,synthetic
+CIN016,TicketIQ Cinema 16,Phagwara,94,synthetic
+CIN017,TicketIQ Cinema 17,Pune,130,synthetic
+CIN018,TicketIQ Cinema 18,Hyderabad,134,synthetic
+CIN019,TicketIQ Cinema 19,Hyderabad,143,synthetic
+CIN020,TicketIQ Cinema 20,Delhi,210,synthetic

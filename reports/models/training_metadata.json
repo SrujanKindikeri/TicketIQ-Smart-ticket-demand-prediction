@@ -1,0 +1,26 @@
+{
+    "best_model_by_mae": "XGBoost",
+    "target": "tickets_booked",
+    "training_rows": 93440,
+    "testing_rows": 23520,
+    "metrics": [
+        {
+            "model": "Linear Regression",
+            "MAE": 9.5878,
+            "RMSE": 12.2013,
+            "R2": 0.8219
+        },
+        {
+            "model": "Random Forest",
+            "MAE": 9.6396,
+            "RMSE": 12.3276,
+            "R2": 0.8182
+        },
+        {
+            "model": "XGBoost",
+            "MAE": 9.2704,
+            "RMSE": 11.8596,
+            "R2": 0.8317
+        }
+    ]
+}

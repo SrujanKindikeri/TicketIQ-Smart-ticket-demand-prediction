@@ -1,0 +1,83 @@
+
+from rest_framework import serializers
+from .models import Cinema, Movie, Show, Booking, Prediction
+
+
+class CinemaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cinema
+        fields = "__all__"
+
+
+class MovieSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Movie
+        fields = "__all__"
+
+
+class ShowSerializer(serializers.ModelSerializer):
+    cinema_name = serializers.CharField(
+        source="cinema.name", read_only=True
+    )
+    movie_title = serializers.CharField(
+        source="movie.title", read_only=True
+    )
+    occupancy_rate = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Show
+        fields = "__all__"
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    total_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
+    class Meta:
+        model = Booking
+        fields = "__all__"
+        read_only_fields = (
+            "total_amount",
+            "status",
+            "booked_at",
+        )
+
+
+class PredictionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prediction
+        fields = "__all__"
+from .models import CinemaSeat, SeatReservation
+
+
+class CinemaSeatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CinemaSeat
+        fields = "__all__"
+
+
+class SeatReservationSerializer(serializers.ModelSerializer):
+    seat_label = serializers.SerializerMethodField()
+    category = serializers.CharField(
+        source="seat.category",
+        read_only=True,
+    )
+
+    class Meta:
+        model = SeatReservation
+        fields = [
+            "id",
+            "show",
+            "seat",
+            "seat_label",
+            "category",
+            "status",
+            "expires_at",
+        ]
+        read_only_fields = fields
+
+    def get_seat_label(self, obj):
+        return f"{obj.seat.row}{obj.seat.seat_number}"

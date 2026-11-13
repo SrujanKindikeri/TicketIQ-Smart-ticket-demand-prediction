@@ -1,0 +1,12 @@
+validation,errors
+Negative ticket bookings,0
+Negative ticket prices,0
+Negative capacity,0
+Bookings above capacity,0
+Invalid occupancy,0
+Negative revenue,0
+Duplicate show IDs,0
+Duplicate rows,0
+Invalid dates,0
+Revenue mismatches,0
+Occupancy mismatches,0
