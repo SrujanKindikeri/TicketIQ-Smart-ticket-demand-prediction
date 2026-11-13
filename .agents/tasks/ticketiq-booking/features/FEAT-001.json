@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add missing fields to Booking model, create Payment and BookingSeat models, generate and run migration 0003, install missing Python packages (razorpay, reportlab, qrcode), and write backend/requirements.txt.",
+  "status": "completed",
+  "steps": [
+    "Read backend/cinema_core/models.py fully before editing.",
+    "In Booking.Status inner class add: PENDING = 'pending', 'Pending'. Change status field default to Status.PENDING.",
+    "Add to Booking model (after booked_at): customer_phone = models.CharField(max_length=20, blank=True); booking_reference = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True); payment_status = models.CharField(max_length=20, choices=[('pending','Pending'),('paid','Paid'),('failed','Failed')], default='pending').",
+    "Add Payment model after Booking: booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='payment'); razorpay_order_id = models.CharField(max_length=100); razorpay_payment_id = models.CharField(max_length=100, blank=True); razorpay_signature = models.CharField(max_length=255, blank=True); status = models.CharField(max_length=20, choices=[('pending','Pending'),('paid','Paid'),('failed','Failed')], default='pending'); amount = models.DecimalField(max_digits=10, decimal_places=2); created_at = models.DateTimeField(auto_now_add=True); updated_at = models.DateTimeField(auto_now=True).",
+    "Add BookingSeat model after Payment: booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='booking_seats'); seat = models.ForeignKey(CinemaSeat, on_delete=models.PROTECT, related_name='booking_seats'); price_at_booking = models.DecimalField(max_digits=10, decimal_places=2). Add Meta with UniqueConstraint(fields=['booking','seat'], name='unique_booking_seat') and ordering=['seat__row','seat__seat_number']. Add __str__ returning f'{self.booking_id} - {self.seat}'.",
+    "Run: python backend/manage.py makemigrations cinema_core (from TicketIQ root with venv activated). Confirm migration file 0003_*.py is created under backend/cinema_core/migrations/.",
+    "Run: python backend/manage.py migrate. Confirm it applies cleanly.",
+    "Install missing packages into the venv: .\\venv\\Scripts\\pip install razorpay==1.4.2 reportlab==4.2.5 'qrcode[pil]==8.1'. Verify with .\\venv\\Scripts\\pip show razorpay reportlab qrcode.",
+    "Create backend/requirements.txt: run .\\venv\\Scripts\\pip freeze > backend\\requirements.txt from the TicketIQ root. This captures all pinned versions including the new packages.",
+    "Run python backend/manage.py check and confirm exit 0.",
+    "Set FEAT-001 status to 'completed' in this file and record findings."
+  ],
+  "acceptance_criteria": [
+    "python backend/manage.py check exits 0 with no errors.",
+    "python backend/manage.py showmigrations cinema_core shows 0003 as [X] applied.",
+    "Booking model has fields: customer_phone, booking_reference, payment_status, and Status.PENDING choice.",
+    "Payment model exists with OneToOne to Booking.",
+    "BookingSeat model exists with FK to Booking and CinemaSeat, UniqueConstraint on (booking, seat).",
+    "backend/requirements.txt exists and contains razorpay, reportlab, qrcode.",
+    "All existing migrations (0001, 0002) remain applied and unmodified."
+  ],
+  "verification": [
+    "python backend/manage.py check",
+    "python backend/manage.py showmigrations cinema_core"
+  ],
+  "blocked_reason": null,
+  "findings": "All steps completed successfully. Booking model updated with PENDING status choice (default changed from CONFIRMED to PENDING), customer_phone, booking_reference (UUID, unique), and payment_status fields. Payment model created with OneToOne to Booking, Razorpay fields, status, amount, and timestamps. BookingSeat model created with FK to Booking and CinemaSeat, price_at_booking, UniqueConstraint on (booking, seat), and ordering by seat row/number. Migration 0003 generated and applied cleanly (all three migrations [X] applied). Packages razorpay==1.4.2, reportlab==4.2.5, qrcode==8.1 installed. backend/requirements.txt generated. manage.py check exits 0 with no issues."
+}

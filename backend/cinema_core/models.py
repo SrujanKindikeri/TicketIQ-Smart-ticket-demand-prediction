@@ -1,6 +1,8 @@
+import uuid
 
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 
 
 class Cinema(models.Model):
@@ -98,6 +100,7 @@ class Show(models.Model):
 
 class Booking(models.Model):
     class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
         CONFIRMED = "confirmed", "Confirmed"
         CANCELLED = "cancelled", "Cancelled"
 
@@ -119,9 +122,20 @@ class Booking(models.Model):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.CONFIRMED
+        default=Status.PENDING
     )
     booked_at = models.DateTimeField(auto_now_add=True)
+    customer_phone = models.CharField(max_length=20, blank=True)
+    booking_reference = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        db_index=True,
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[("pending", "Pending"), ("paid", "Paid"), ("failed", "Failed")],
+        default="pending",
+    )
 
     def __str__(self):
         return f"Booking #{self.pk} - {self.customer_name}"
@@ -150,9 +164,6 @@ class Prediction(models.Model):
 
     def __str__(self):
         return f"Prediction for Show {self.show_id}"
-import uuid
-
-from django.utils import timezone
 
 
 class CinemaSeat(models.Model):
@@ -239,3 +250,51 @@ class SeatReservation(models.Model):
 
     def __str__(self):
         return f"{self.show} - {self.seat} ({self.status})"
+
+
+class Payment(models.Model):
+    booking = models.OneToOneField(
+        Booking,
+        on_delete=models.CASCADE,
+        related_name="payment",
+    )
+    razorpay_order_id = models.CharField(max_length=100)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True)
+    razorpay_signature = models.CharField(max_length=255, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[("pending", "Pending"), ("paid", "Paid"), ("failed", "Failed")],
+        default="pending",
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Payment for Booking #{self.booking_id} ({self.status})"
+
+
+class BookingSeat(models.Model):
+    booking = models.ForeignKey(
+        Booking,
+        on_delete=models.CASCADE,
+        related_name="booking_seats",
+    )
+    seat = models.ForeignKey(
+        CinemaSeat,
+        on_delete=models.PROTECT,
+        related_name="booking_seats",
+    )
+    price_at_booking = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["booking", "seat"],
+                name="unique_booking_seat",
+            )
+        ]
+        ordering = ["seat__row", "seat__seat_number"]
+
+    def __str__(self):
+        return f"{self.booking_id} - {self.seat}"
