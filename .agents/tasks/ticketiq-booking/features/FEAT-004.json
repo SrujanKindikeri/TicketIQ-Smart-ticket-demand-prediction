@@ -1,0 +1,43 @@
+{
+  "id": "FEAT-004",
+  "type": "test",
+  "description": "Convert tests.py stub to a test package, write 5 test modules covering seats/availability/booking/auth/ticket, run final verification commands, and write IMPLEMENTATION.md. Depends on FEAT-001, FEAT-002, FEAT-003 all being complete.",
+  "status": "completed",
+  "steps": [
+    "Delete backend/cinema_core/tests.py (the empty stub file). Create backend/cinema_core/tests/ directory with an empty __init__.py.",
+
+    "Create backend/cinema_core/tests/test_seats.py using Django TestCase. setUp: create a Cinema with name='Test Cinema', location='Loc', city='City', total_seats=100, is_active=True. Create an admin User. Use self.client.force_login(admin_user) for protected endpoints.\n  test_seat_generation_creates_correct_count: POST /api/seats/generate/ with {cinema:<id>,rows:5,seats_per_row:10}; assert response.status_code==200; assert response.data['created_seats']==50.\n  test_seat_generation_is_idempotent: call generate twice with same params; assert second call created_seats==0.\n  test_seat_requires_valid_cinema: POST generate with cinema=99999; assert status_code==404.",
+
+    "Create backend/cinema_core/tests/test_availability.py.\n  setUp: create Cinema, Movie, Show (show_date=date.today()+timedelta(1), show_time='18:00', ticket_price=200, seats_available=50). Generate 3 seats via CinemaSeat.objects.create (row='A', seat_number 1-3, category=silver, price_multiplier=1.0, cinema=cinema).\n  test_availability_returns_all_seats: GET /api/shows/<id>/availability/ assert 200 and len(data['seats'])==3.\n  test_hold_creates_reservation: POST /api/shows/<id>/hold/ with {seat_ids:[seat1.id]}; assert 200; assert SeatReservation.objects.filter(show=show,status='held').count()==1.\n  test_hold_prevents_double_booking: POST hold twice for same seat; second returns 409.\n  test_expired_hold_is_released: create SeatReservation(show,seat,status=HELD,expires_at=now-timedelta(minutes=10),hold_token=uuid4()); GET availability; assert that seat appears as 'available' in response.\n  test_hold_validates_seat_belongs_to_show_cinema: create a second Cinema and a CinemaSeat for it; POST hold with that foreign seat_id; assert 400.",
+
+    "Create backend/cinema_core/tests/test_booking.py.\n  setUp: Cinema, Movie, Show, 2 CinemaSeat rows. Hold 2 seats via POST /api/shows/<id>/hold/ to get hold_token.\n  test_create_booking_from_hold: POST /api/bookings/create/ with hold_token and customer details; assert 201; assert Booking.objects.count()==1; assert BookingSeat.objects.count()==2.\n  test_payment_verify_confirms_booking: use mock order id from create_booking response; POST /api/payments/verify/ with {razorpay_order_id,razorpay_payment_id:'test',razorpay_signature:'test'}; assert response.data['success']==True; assert Booking.objects.get().status=='confirmed'.\n  test_cancel_releases_seats: confirm booking via verify; POST /api/bookings/<id>/cancel/; assert SeatReservation.objects.filter(show=show,status='booked').count()==0; assert BookingSeat.objects.filter(booking=booking).count()==0.\n  test_cancel_already_cancelled: cancel twice; both return 200 with a message.\n  test_pdf_ticket_returns_pdf: confirm booking; GET /api/bookings/<booking_reference>/ticket/; assert response['Content-Type']=='application/pdf'.",
+
+    "Create backend/cinema_core/tests/test_auth.py.\n  test_admin_bookings_requires_staff: anonymous client GET /api/admin/bookings/ assert 403.\n  test_my_bookings_returns_only_own: create two Bookings with different emails; GET /api/bookings/my/?email=email1; assert none of the results have customer_email==email2. Use force_login with a regular user for MyBookingsView (IsAuthenticated).\n  test_seat_generate_requires_staff: anonymous POST /api/seats/generate/ assert 403.",
+
+    "Create backend/cinema_core/tests/test_ticket.py.\n  setUp: create confirmed Booking with BookingSeat via test helpers (use the same pattern as test_booking.py setUp but confirm inline).\n  test_verify_booking_reference_returns_no_pii: GET /api/bookings/<booking_reference>/verify/; assert 'customer_email' not in response.data; assert 'customer_phone' not in response.data; assert 'customer_name' not in response.data.\n  test_verify_nonexistent_ref_returns_404: GET /api/bookings/00000000-0000-0000-0000-000000000000/verify/; assert 404.",
+
+    "Run: python backend/manage.py test cinema_core (from TicketIQ root with venv activated). Fix all failures. If a test requires DB state that conflicts with constraints, use TestCase.setUp correctly to isolate. For PDF test: if reportlab produces valid bytes but asserting content-type is enough, skip byte inspection.",
+
+    "Run: python backend/manage.py check. Must exit 0.",
+    "Run: cd frontend && npm run build. Must exit 0.",
+
+    "Create IMPLEMENTATION.md at c:\\Users\\kindi\\OneDrive\\Documents\\TicketIQ\\IMPLEMENTATION.md with sections: Overview, Setup (clone, venv, pip install -r backend/requirements.txt, DB setup, migrate), Running (backend: cd backend && python manage.py runserver; frontend: cd frontend && npm run dev), Environment Variables (DJANGO_SECRET_KEY, DB_NAME/USER/PASSWORD/HOST/PORT, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, VITE_RAZORPAY_KEY_ID), API Reference (table of all endpoints), Payment Integration (Razorpay setup instructions + test mode fallback), Booking Flow (steps 1-12), Testing (python manage.py test cinema_core).",
+
+    "Update FEAT-004 status to 'completed' and record findings."
+  ],
+  "acceptance_criteria": [
+    "python backend/manage.py test cinema_core passes all tests (or documents intentional skips).",
+    "python backend/manage.py check exits 0.",
+    "cd frontend && npm run build exits 0.",
+    "IMPLEMENTATION.md exists at repo root with all sections.",
+    "backend/cinema_core/tests/ directory has __init__.py and 5 test_*.py files.",
+    "backend/cinema_core/tests.py no longer exists."
+  ],
+  "verification": [
+    "python backend/manage.py test cinema_core",
+    "python backend/manage.py check",
+    "cd frontend && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "Deleted tests.py stub and replaced with a tests/ package containing 5 test modules (test_seats, test_availability, test_booking, test_auth, test_ticket). All 18 tests pass: python manage.py test cinema_core runs OK in ~7s. manage.py check exits 0 (no issues). Frontend npm run build exits 0 (2161 modules, 360 kB JS bundle). IMPLEMENTATION.md created at repo root with all required sections. No existing tests were modified; no new migrations were needed. The PaymentVerifyView uses hmac.new which is correct (hmac.new is an alias for hmac.HMAC in Python 3.11); mock_order_ prefix bypasses real Razorpay signature verification cleanly."
+}
