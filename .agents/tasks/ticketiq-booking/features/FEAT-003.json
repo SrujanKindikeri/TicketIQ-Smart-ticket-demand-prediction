@@ -1,0 +1,57 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Create 7 new React frontend pages (MovieSelection, ShowtimeSelection, SeatSelection, Checkout, BookingConfirmation, MyBookings, Bookings) and update App.jsx to wire them into the existing state-based navigation. Independent of FEAT-002 at build time (components just call the API URLs), but must come after FEAT-001/002 for runtime correctness.",
+  "status": "completed",
+  "steps": [
+    "Read frontend/src/App.jsx, frontend/src/pages/Movies.jsx, frontend/src/pages/Movies.css, frontend/src/pages/Shows.jsx, frontend/src/pages/Shows.css fully before writing any new files. Match their CSS variable usage and component patterns exactly.",
+
+    "Create frontend/src/pages/MovieSelection.jsx: imports axios, lucide-react (Film, Search, RefreshCw, ChevronRight). API constant 'http://127.0.0.1:8000/api/'. On mount fetch GET /api/movies/ filter to is_active=true. Render page heading 'Book Tickets' with eyebrow 'CUSTOMER BOOKING'. Movie grid using same card structure as Movies.jsx art + card-body. Each card has 'Book Now' button (primary blue). On click: call onNext({selectedMovie: movie}) to transition. Props: {onNext, onBack}. CSS class prefix: 'movie-sel-'.",
+
+    "Create frontend/src/pages/ShowtimeSelection.jsx: props {selectedMovie, onNext, onBack}. On mount fetch GET /api/shows/?movie=<selectedMovie.id> and GET /api/cinemas/. Group shows by cinema, then by show_date. Render cinema cards each with date tabs and time slots. On showtime click: call onNext({selectedShow: show}). Show movie title/poster in heading. CSS class prefix: 'showtime-sel-'.",
+
+    "Create frontend/src/pages/SeatSelection.jsx: props {selectedMovie, selectedShow, onNext, onBack}. On mount fetch GET /api/shows/<selectedShow.id>/availability/. Set up setInterval(fetch, 30000) for polling; clear on unmount. Render: screen div at top ('SCREEN' label, curved bar). Seat grid grouped by row. Each seat is a <button> with class determined by status: 'seat-available' (bg #e5e5ea), 'seat-selected' (bg #007AFF, white text), 'seat-held' (bg #FF9500), 'seat-booked' (bg #636366, disabled). Click toggles selection for available seats. Legend below grid showing Available/Selected/Held/Booked colours. Category legend: Silver/Gold/Premium with price (show.ticket_price * multiplier). Bottom bar: '{N} seats selected', 'Total: ₹{amount}', 'Continue' button (disabled if 0 selected). On Continue: POST /api/shows/<id>/hold/ with {seat_ids:[...selected]}. On success call onNext({heldSeats:seats, sessionToken:session_token, expiresAt:expires_at}). CSS class prefix: 'seat-sel-'.",
+
+    "Create frontend/src/pages/Checkout.jsx: props {selectedMovie, selectedShow, heldSeats, sessionToken, expiresAt, onNext, onBack}. Show booking summary (movie, cinema, date, time, seats, total). Form fields: Full name (required), Email (required, type=email), Phone (required, pattern=[0-9]{10}). Countdown timer showing hold expiry (expiresAt). On submit: POST /api/bookings/create/ with {hold_token:sessionToken, customer_name, customer_email, customer_phone}. On success response: if razorpay_key_id is non-empty, dynamically load Razorpay checkout script (https://checkout.razorpay.com/v1/checkout.js) and open Rzp with options {key:razorpay_key_id, amount:total*100, currency:'INR', order_id:razorpay_order_id, handler: async(response)=>{ await POST /api/payments/verify/ with response; call onNext({bookingRef:booking_reference}); }}. If razorpay_key_id is empty, show 'Test Mode' yellow banner and a 'Simulate Payment Success' button that calls POST /api/payments/verify/ with {razorpay_order_id, razorpay_payment_id:'test_pay_'+Date.now(), razorpay_signature:'test'} then calls onNext. CSS class prefix: 'checkout-'.",
+
+    "Create frontend/src/pages/BookingConfirmation.jsx: props {bookingRef, selectedMovie, selectedShow, onBack}. On mount fetch GET /api/bookings/<bookingRef>/verify/. Render: large green checkmark (Lucide CheckCircle2 icon, color #34C759). 'Booking Confirmed!' heading. Booking reference in monospace box. Movie/cinema/date/time/seats/amount table. 'Download Ticket' button: anchor href to 'http://127.0.0.1:8000/api/bookings/<bookingRef>/ticket/' with download attribute. 'Book Another' button: calls onBack to reset flow. CSS class prefix: 'confirm-'.",
+
+    "Create frontend/src/pages/MyBookings.jsx: standalone page (not part of booking flow). Props: none (rendered by App.jsx on nav click). State: email input, bookings list, loading, error. Form: enter email → submit → GET /api/bookings/my/?email=<email>. Split results into upcoming (show_date >= today) and past. Render two sections each as cards showing movie/cinema/date/seats/status/payment_status. Each card: 'Download Ticket' button (link to ticket endpoint) if status=confirmed; 'Cancel' button if status in [confirmed,pending] calling POST /api/bookings/<id>/cancel/ then refresh. CSS class prefix: 'mybookings-'.",
+
+    "Create frontend/src/pages/Bookings.jsx: admin page. Props: none. On mount: parallel fetch GET /api/admin/bookings/ and GET /api/admin/bookings/stats/. Stats bar at top: Total / Confirmed / Cancelled / Pending / Revenue (matching Shows.jsx stats section style). Filter toolbar: search input, status dropdown, date input, refresh button. Table with columns: Ref, Customer, Movie/Cinema, Date/Time, Seats, Amount, Status, Payment, Actions. Status badge CSS classes: 'booking-status confirmed' (green), 'booking-status cancelled' (red), 'booking-status pending' (orange). Actions column: eye icon (show detail modal), cancel button (if cancellable). Detail modal shows all booking fields. Uses axios with withCredentials:true for admin session auth (DRF SessionAuthentication). CSS class prefix: 'admin-bookings-'.",
+
+    "Update frontend/src/App.jsx:",
+    "  1. Add imports for all 7 new pages at the top.",
+    "  2. Add to the navigation array (after Shows entry): {name:'Book Tickets', icon: ShoppingBag} and {name:'My Bookings', icon: Ticket}. Import ShoppingBag from lucide-react.",
+    "  3. Add booking flow state: const [bookingStep, setBookingStep] = useState(null); const [selectedMovie, setSelectedMovie] = useState(null); const [selectedShow, setSelectedShow] = useState(null); const [heldSeats, setHeldSeats] = useState([]); const [sessionToken, setSessionToken] = useState(''); const [expiresAt, setExpiresAt] = useState(null); const [bookingRef, setBookingRef] = useState('').",
+    "  4. Define navigateTo to also reset bookingStep to null when navigating away from flow pages.",
+    "  5. When activePage === 'Book Tickets' and bookingStep === null: render <MovieSelection onNext={data=>{setSelectedMovie(data.selectedMovie);setBookingStep('showtime');}} onBack={()=>navigateTo('Overview')} />.",
+    "  6. When bookingStep === 'showtime': render <ShowtimeSelection selectedMovie={selectedMovie} onNext={data=>{setSelectedShow(data.selectedShow);setBookingStep('seat');}} onBack={()=>setBookingStep(null)} />.",
+    "  7. When bookingStep === 'seat': render <SeatSelection selectedMovie={selectedMovie} selectedShow={selectedShow} onNext={data=>{setHeldSeats(data.heldSeats);setSessionToken(data.sessionToken);setExpiresAt(data.expiresAt);setBookingStep('checkout');}} onBack={()=>setBookingStep('showtime')} />.",
+    "  8. When bookingStep === 'checkout': render <Checkout selectedMovie={selectedMovie} selectedShow={selectedShow} heldSeats={heldSeats} sessionToken={sessionToken} expiresAt={expiresAt} onNext={data=>{setBookingRef(data.bookingRef);setBookingStep('confirmation');}} onBack={()=>setBookingStep('seat')} />.",
+    "  9. When bookingStep === 'confirmation': render <BookingConfirmation bookingRef={bookingRef} selectedMovie={selectedMovie} selectedShow={selectedShow} onBack={()=>{setBookingStep(null);navigateTo('Book Tickets');}} />.",
+    "  10. In content-area render block: add conditions for 'Book Tickets' (renders booking flow or MovieSelection), 'My Bookings' (renders <MyBookings />), 'Bookings' (renders <Bookings /> instead of PlaceholderPage). Add 'Book Tickets' and 'My Bookings' to the array in the final catch-all check.",
+    "  11. Update pageTitles object to include 'Book Tickets', 'My Bookings'.",
+
+    "Create frontend/.env.example with content: VITE_RAZORPAY_KEY_ID=your_razorpay_key_id_here",
+
+    "Run: cd frontend && npm run build. Fix all JSX/import errors until build exits 0.",
+
+    "Set FEAT-003 status to 'completed' and record findings."
+  ],
+  "acceptance_criteria": [
+    "npm run build (from frontend/) exits 0 with no errors.",
+    "App.jsx imports all 7 new pages without duplicate imports.",
+    "Clicking 'Book Tickets' in sidebar renders MovieSelection page.",
+    "Clicking 'My Bookings' in sidebar renders MyBookings page.",
+    "Clicking 'Bookings' in sidebar renders the new admin Bookings page (not PlaceholderPage).",
+    "Existing Overview/Movies/Cinemas/Shows pages still render correctly.",
+    "SeatSelection renders seats as individual button elements (not a static image).",
+    "Checkout shows test-mode banner when VITE_RAZORPAY_KEY_ID is not set."
+  ],
+  "verification": [
+    "cd frontend && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "All 7 pages created: MovieSelection, ShowtimeSelection, SeatSelection, Checkout, BookingConfirmation, MyBookings, Bookings. App.jsx updated with full booking flow state machine (bookingStep: null→showtime→seat→checkout→confirmation). ShoppingBag and Ticket nav items added. Bookings page replaces PlaceholderPage for the existing Bookings nav entry. Checkout implements dynamic Razorpay script loading with test-mode yellow banner fallback when VITE_RAZORPAY_KEY_ID is not set. SeatSelection uses individual <button> elements per seat with status-based CSS classes. All CSS files use page-specific class prefixes matching the spec. Build verified: npm run build exits 0 (360KB JS bundle, 60KB CSS, 1.53s)."
+}

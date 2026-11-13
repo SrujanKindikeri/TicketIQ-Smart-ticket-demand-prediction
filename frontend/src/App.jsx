@@ -21,11 +21,19 @@ import {
   Users,
   Building2,
   RefreshCw,
+  ShoppingBag,
 } from "lucide-react";
 
 import Movies from "./pages/Movies";
 import Cinemas from "./pages/Cinemas";
 import Shows from "./pages/Shows";
+import MovieSelection from "./pages/MovieSelection";
+import ShowtimeSelection from "./pages/ShowtimeSelection";
+import SeatSelection from "./pages/SeatSelection";
+import Checkout from "./pages/Checkout";
+import BookingConfirmation from "./pages/BookingConfirmation";
+import MyBookings from "./pages/MyBookings";
+import Bookings from "./pages/Bookings";
 
 import "./App.css";
 
@@ -38,6 +46,8 @@ const navigation = [
   { name: "Shows", icon: CalendarDays },
   { name: "Bookings", icon: Ticket },
   { name: "Predictions", icon: TrendingUp },
+  { name: "Book Tickets", icon: ShoppingBag },
+  { name: "My Bookings", icon: Ticket },
 ];
 
 function Dashboard() {
@@ -335,7 +345,6 @@ function Dashboard() {
 
 function PlaceholderPage({ name, onBack }) {
   const pageInfo = {
-    Bookings: "Review bookings, ticket counts and booking records.",
     Predictions: "Forecast cinema demand, occupancy and revenue.",
     Settings: "Manage your application preferences.",
     "Help & Support": "Find help and information about TicketIQ.",
@@ -364,9 +373,22 @@ export default function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Booking flow state
+  const [bookingStep, setBookingStep] = useState(null);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedShow, setSelectedShow] = useState(null);
+  const [heldSeats, setHeldSeats] = useState([]);
+  const [sessionToken, setSessionToken] = useState("");
+  const [expiresAt, setExpiresAt] = useState(null);
+  const [bookingRef, setBookingRef] = useState("");
+
   function navigateTo(page) {
     setActivePage(page);
     setSidebarOpen(false);
+    // Reset booking flow when navigating away from booking pages
+    if (page !== "Book Tickets") {
+      setBookingStep(null);
+    }
   }
 
   const pageTitles = {
@@ -378,6 +400,8 @@ export default function App() {
     Predictions: "Predictions",
     Settings: "Settings",
     "Help & Support": "Help & Support",
+    "Book Tickets": "Book Tickets",
+    "My Bookings": "My Bookings",
   };
 
   return (
@@ -491,7 +515,7 @@ export default function App() {
             </button>
 
             <div className="breadcrumb">
-              Workspace <span>/</span> {pageTitles[activePage]}
+              Workspace <span>/</span> {pageTitles[activePage] || activePage}
             </div>
           </div>
 
@@ -519,11 +543,80 @@ export default function App() {
 
           {activePage === "Shows" && <Shows />}
 
+          {activePage === "Bookings" && <Bookings />}
+
+          {activePage === "My Bookings" && <MyBookings />}
+
+          {activePage === "Book Tickets" && bookingStep === null && (
+            <MovieSelection
+              onNext={(data) => {
+                setSelectedMovie(data.selectedMovie);
+                setBookingStep("showtime");
+              }}
+              onBack={() => navigateTo("Overview")}
+            />
+          )}
+
+          {activePage === "Book Tickets" && bookingStep === "showtime" && (
+            <ShowtimeSelection
+              selectedMovie={selectedMovie}
+              onNext={(data) => {
+                setSelectedShow(data.selectedShow);
+                setBookingStep("seat");
+              }}
+              onBack={() => setBookingStep(null)}
+            />
+          )}
+
+          {activePage === "Book Tickets" && bookingStep === "seat" && (
+            <SeatSelection
+              selectedMovie={selectedMovie}
+              selectedShow={selectedShow}
+              onNext={(data) => {
+                setHeldSeats(data.heldSeats);
+                setSessionToken(data.sessionToken);
+                setExpiresAt(data.expiresAt);
+                setBookingStep("checkout");
+              }}
+              onBack={() => setBookingStep("showtime")}
+            />
+          )}
+
+          {activePage === "Book Tickets" && bookingStep === "checkout" && (
+            <Checkout
+              selectedMovie={selectedMovie}
+              selectedShow={selectedShow}
+              heldSeats={heldSeats}
+              sessionToken={sessionToken}
+              expiresAt={expiresAt}
+              onNext={(data) => {
+                setBookingRef(data.bookingRef);
+                setBookingStep("confirmation");
+              }}
+              onBack={() => setBookingStep("seat")}
+            />
+          )}
+
+          {activePage === "Book Tickets" && bookingStep === "confirmation" && (
+            <BookingConfirmation
+              bookingRef={bookingRef}
+              selectedMovie={selectedMovie}
+              selectedShow={selectedShow}
+              onBack={() => {
+                setBookingStep(null);
+                navigateTo("Book Tickets");
+              }}
+            />
+          )}
+
           {![
             "Overview",
             "Movies",
             "Cinemas",
             "Shows",
+            "Bookings",
+            "My Bookings",
+            "Book Tickets",
           ].includes(activePage) && (
             <PlaceholderPage
               name={activePage}
