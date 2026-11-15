@@ -5,8 +5,6 @@ import "./SeatSelection.css";
 
 const API = "http://127.0.0.1:8000/api/";
 
-const CATEGORY_MULTIPLIER = { Silver: 1.0, Gold: 1.5, Premium: 2.0 };
-
 function formatPrice(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
@@ -68,11 +66,9 @@ export default function SeatSelection({ selectedMovie, selectedShow, onNext, onB
   }
   const sortedRows = Object.keys(rows).sort();
 
-  // Calculate total
-  const basePrice = Number(selectedShow.ticket_price || 0);
+  // Calculate total using the `price` field returned directly by the API
   const total = selected.reduce((sum, seat) => {
-    const mult = CATEGORY_MULTIPLIER[seat.category] || 1.0;
-    return sum + basePrice * mult;
+    return sum + Number(seat.price || 0);
   }, 0);
 
   async function handleContinue() {
@@ -184,14 +180,22 @@ export default function SeatSelection({ selectedMovie, selectedShow, onNext, onB
             </div>
           </div>
 
-          {/* Category pricing */}
+          {/* Category pricing — derived from actual seat prices in availability data */}
           <div className="seat-sel-categories">
-            {Object.entries(CATEGORY_MULTIPLIER).map(([cat, mult]) => (
-              <div className="seat-sel-category" key={cat}>
-                <span className={`seat-sel-cat-badge cat-${cat.toLowerCase()}`}>{cat}</span>
-                <span>{formatPrice(basePrice * mult)}</span>
-              </div>
-            ))}
+            {["silver", "gold", "premium"].map((cat) => {
+              const sample = availability?.seats?.find(
+                (s) => s.category?.toLowerCase() === cat && s.status === "available"
+              );
+              if (!sample) return null;
+              return (
+                <div className="seat-sel-category" key={cat}>
+                  <span className={`seat-sel-cat-badge cat-${cat}`}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </span>
+                  <span>{formatPrice(sample.price)}</span>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

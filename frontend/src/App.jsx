@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "./api";
 
 import {
   LayoutDashboard,
@@ -22,6 +22,8 @@ import {
   Building2,
   RefreshCw,
   ShoppingBag,
+  Lock,
+  LogIn,
 } from "lucide-react";
 
 import Movies from "./pages/Movies";
@@ -34,6 +36,9 @@ import Checkout from "./pages/Checkout";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import MyBookings from "./pages/MyBookings";
 import Bookings from "./pages/Bookings";
+import Predictions from "./pages/Predictions";
+import SettingsPage from "./pages/Settings";
+import HelpSupport from "./pages/HelpSupport";
 
 import "./App.css";
 
@@ -49,6 +54,95 @@ const navigation = [
   { name: "Book Tickets", icon: ShoppingBag },
   { name: "My Bookings", icon: Ticket },
 ];
+
+// =====================================================
+// ADMIN LOGIN MODAL
+// =====================================================
+
+function AdminLoginModal({ onSuccess, onClose }) {
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  function update(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const resp = await axios.post(`${API_BASE}auth/login/`, form);
+      onSuccess(resp.data);
+    } catch (err) {
+      const d = err.response?.data;
+      setError(d?.error || d?.detail || "Login failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal admin-login-modal">
+        <div className="modal-heading">
+          <div className="modal-heading-icon">
+            <Lock size={20} />
+          </div>
+          <div>
+            <h2>Admin Login</h2>
+            <p>Enter your Django administrator credentials.</p>
+          </div>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && <div className="modal-error">{error}</div>}
+
+        <form onSubmit={handleLogin} className="modal-form">
+          <label>
+            Username
+            <input
+              name="username"
+              value={form.username}
+              onChange={update}
+              placeholder="admin"
+              required
+              autoFocus
+              disabled={loading}
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={update}
+              placeholder="••••••••"
+              required
+              disabled={loading}
+            />
+          </label>
+          <button type="submit" className="modal-submit-btn" disabled={loading}>
+            {loading ? <RefreshCw size={15} className="spin" /> : <LogIn size={15} />}
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// DASHBOARD
+// =====================================================
 
 function Dashboard() {
   const [data, setData] = useState(null);
@@ -323,14 +417,14 @@ function Dashboard() {
           </div>
 
           <p className="muted-text">
-            TicketIQ's machine learning engine will estimate ticket
+            TicketIQ's machine learning engine estimates ticket
             demand, expected occupancy and potential revenue for
             upcoming cinema shows.
           </p>
 
           <div className="status-chip">
             <span className="status-dot" />
-            Prediction interface under development
+            Navigate to Predictions to run forecasts
           </div>
         </section>
       </div>
@@ -343,35 +437,23 @@ function Dashboard() {
   );
 }
 
-function PlaceholderPage({ name, onBack }) {
-  const pageInfo = {
-    Predictions: "Forecast cinema demand, occupancy and revenue.",
-    Settings: "Manage your application preferences.",
-    "Help & Support": "Find help and information about TicketIQ.",
-  };
-
-  return (
-    <section className="panel coming-soon">
-      <div className="empty-chart-icon">
-        <Command size={26} />
-      </div>
-
-      <h2>{name}</h2>
-
-      <p>
-        {pageInfo[name] || "This module is being developed."}
-      </p>
-
-      <button className="primary-button" onClick={onBack}>
-        Return to overview
-      </button>
-    </section>
-  );
-}
+// =====================================================
+// APP ROOT
+// =====================================================
 
 export default function App() {
-  const [activePage, setActivePage] = useState("Overview");
+  // Read initial page from hash
+  const getInitialPage = () => {
+    const hash = window.location.hash.slice(1);
+    return hash || "Overview";
+  };
+
+  const [activePage, setActivePage] = useState(getInitialPage);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Auth state
+  const [auth, setAuth] = useState({ authenticated: false, is_admin: false, username: null });
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Booking flow state
   const [bookingStep, setBookingStep] = useState(null);
@@ -382,13 +464,56 @@ export default function App() {
   const [expiresAt, setExpiresAt] = useState(null);
   const [bookingRef, setBookingRef] = useState("");
 
+  // Check auth status on mount
+  useEffect(() => {
+    axios.get(`${API_BASE}auth/status/`)
+      .then((resp) => setAuth(resp.data))
+      .catch(() => {});
+  }, []);
+
+  // Show login modal when navigating to protected pages without auth
+  useEffect(() => {
+    const protected_pages = ["Bookings", "Predictions", "Settings"];
+    if (protected_pages.includes(activePage) && !auth.authenticated) {
+      axios.get(`${API_BASE}auth/status/`)
+        .then((resp) => {
+          setAuth(resp.data);
+          if (!resp.data.authenticated) setShowLoginModal(true);
+        })
+        .catch(() => setShowLoginModal(true));
+    }
+  }, [activePage]);
+
   function navigateTo(page) {
     setActivePage(page);
+    window.location.hash = page;
     setSidebarOpen(false);
-    // Reset booking flow when navigating away from booking pages
     if (page !== "Book Tickets") {
       setBookingStep(null);
     }
+  }
+
+  // Keep hash in sync when back/forward navigation occurs
+  useEffect(() => {
+    function onHashChange() {
+      const hash = window.location.hash.slice(1);
+      if (hash) setActivePage(hash);
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  function handleLoginSuccess(data) {
+    setAuth({ authenticated: true, is_admin: data.is_staff || data.is_superuser, username: data.username });
+    setShowLoginModal(false);
+  }
+
+  async function handleLogout() {
+    try {
+      await axios.post(`${API_BASE}auth/logout/`);
+    } catch {}
+    setAuth({ authenticated: false, is_admin: false, username: null });
+    navigateTo("Overview");
   }
 
   const pageTitles = {
@@ -406,6 +531,13 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {showLoginModal && (
+        <AdminLoginModal
+          onSuccess={handleLoginSuccess}
+          onClose={() => setShowLoginModal(false)}
+        />
+      )}
+
       {sidebarOpen && (
         <button
           className="sidebar-overlay"
@@ -491,14 +623,32 @@ export default function App() {
           </button>
 
           <div className="profile-card">
-            <div className="profile-avatar">A</div>
-
-            <div className="profile-info">
-              <strong>Administrator</strong>
-              <span>Workspace admin</span>
+            <div className="profile-avatar">
+              {auth.username ? auth.username[0].toUpperCase() : "A"}
             </div>
 
-            <ChevronDown size={16} />
+            <div className="profile-info">
+              <strong>{auth.username || "Guest"}</strong>
+              <span>{auth.is_admin ? "Administrator" : auth.authenticated ? "Staff" : "Not signed in"}</span>
+            </div>
+
+            {auth.authenticated ? (
+              <button
+                className="profile-logout-btn"
+                onClick={handleLogout}
+                title="Sign out"
+              >
+                <X size={14} />
+              </button>
+            ) : (
+              <button
+                className="profile-logout-btn"
+                onClick={() => setShowLoginModal(true)}
+                title="Admin sign in"
+              >
+                <LogIn size={14} />
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -530,7 +680,9 @@ export default function App() {
 
             <div className="topbar-divider" />
 
-            <div className="topbar-avatar">A</div>
+            <div className="topbar-avatar">
+              {auth.username ? auth.username[0].toUpperCase() : "A"}
+            </div>
           </div>
         </header>
 
@@ -543,7 +695,64 @@ export default function App() {
 
           {activePage === "Shows" && <Shows />}
 
-          {activePage === "Bookings" && <Bookings />}
+          {activePage === "Bookings" && (
+            auth.authenticated ? (
+              <Bookings auth={auth} />
+            ) : (
+              <div className="auth-gate-panel">
+                <Lock size={32} className="auth-gate-icon" />
+                <h2>Admin access required</h2>
+                <p>The Bookings page is restricted to administrators.</p>
+                <button
+                  className="primary-button"
+                  onClick={() => setShowLoginModal(true)}
+                >
+                  <LogIn size={15} />
+                  Sign In as Admin
+                </button>
+              </div>
+            )
+          )}
+
+          {activePage === "Predictions" && (
+            auth.authenticated ? (
+              <Predictions auth={auth} />
+            ) : (
+              <div className="auth-gate-panel">
+                <Lock size={32} className="auth-gate-icon" />
+                <h2>Admin access required</h2>
+                <p>The Predictions page is restricted to administrators.</p>
+                <button
+                  className="primary-button"
+                  onClick={() => setShowLoginModal(true)}
+                >
+                  <LogIn size={15} />
+                  Sign In as Admin
+                </button>
+              </div>
+            )
+          )}
+
+          {activePage === "Settings" && (
+            auth.authenticated ? (
+              <SettingsPage auth={auth} />
+            ) : (
+              <div className="auth-gate-panel">
+                <Lock size={32} className="auth-gate-icon" />
+                <h2>Admin access required</h2>
+                <p>Settings are restricted to administrators.</p>
+                <button
+                  className="primary-button"
+                  onClick={() => setShowLoginModal(true)}
+                >
+                  <LogIn size={15} />
+                  Sign In as Admin
+                </button>
+              </div>
+            )
+          )}
+
+          {activePage === "Help & Support" && <HelpSupport />}
 
           {activePage === "My Bookings" && <MyBookings />}
 
@@ -606,21 +815,6 @@ export default function App() {
                 setBookingStep(null);
                 navigateTo("Book Tickets");
               }}
-            />
-          )}
-
-          {![
-            "Overview",
-            "Movies",
-            "Cinemas",
-            "Shows",
-            "Bookings",
-            "My Bookings",
-            "Book Tickets",
-          ].includes(activePage) && (
-            <PlaceholderPage
-              name={activePage}
-              onBack={() => navigateTo("Overview")}
             />
           )}
         </div>

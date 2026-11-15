@@ -1,0 +1,10 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "summary": "Implementation is functionally complete except for three blocking issues: MyBookings is non-functional at runtime due to a missing auth credential, frontend price totals diverge from backend charges due to a hardcoded multiplier map, and cancel via MyBookings always 403s for non-staff users.",
+  "findings": [
+    "MyBookings broken at runtime: MyBookingsView requires IsAuthenticated but MyBookings.jsx sends no auth credentials (no withCredentials, no Authorization header). Every real user gets a 401/403. Fix: add withCredentials:true to the axios call and configure CORS to allow credentials, or change the permission to AllowAny and rely on the existing email-ownership check.",
+    "Frontend price mismatch: SeatSelection.jsx and Checkout.jsx compute totals from a hardcoded {Silver:1.0, Gold:1.5, Premium:2.0} multiplier map instead of using the per-seat 'price' field already returned by the availability endpoint. Any cinema with non-standard multipliers will display the wrong total while the backend charges the correct amount. Fix: replace the manual calculation with Number(seat.price) from the API response.",
+    "Cancel button non-functional for customers: BookingViewSet.cancel is IsAdminUser-only, so the Cancel button in MyBookings.jsx will always return 403 for regular users. Either expose a customer-facing cancel endpoint or restrict the UI button to admin users.",
+    "Missing test coverage: no test for TicketView on an unconfirmed booking, no test for HoldSeatsView with an empty/non-list seat_ids body (expected 400), and no test for the DELETE /api/shows/<id>/hold/ release path."
+  ]
+}

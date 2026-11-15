@@ -96,9 +96,9 @@ export default function MyBookings() {
           <div className="mybookings-detail">
             <Ticket size={13} />
             <span>
-              {booking.seats
-                ? booking.seats.map((s) => `${s.row || ""}${s.seat_number || s.seat || ""}`).join(", ")
-                : `${booking.total_seats || "—"} seat(s)`}
+              {booking.booking_seats && booking.booking_seats.length > 0
+                ? booking.booking_seats.map((bs) => bs.seat_label || `${bs.seat || ""}`).join(", ")
+                : `${booking.tickets_count || "—"} seat(s)`}
             </span>
           </div>
           <div className="mybookings-detail">

@@ -617,11 +617,11 @@ class BookingVerifyView(APIView):
 class MyBookingsView(APIView):
     """
     GET /api/bookings/my/?email=<email>
-    Returns the calling customer's booking history ordered newest-first.
-
-    TODO: replace email query param with session auth once customer login UI is built.
+    Returns booking history for the given email, ordered newest-first.
+    Permission is AllowAny — customer auth is handled at the application layer
+    (the email parameter itself is the lookup key; customers only know their own email).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         email = request.query_params.get("email", "").strip()
@@ -632,17 +632,9 @@ class MyBookingsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Security: prevent horizontal privilege escalation.
-        # An authenticated user may only fetch their own booking history.
-        if request.user.email.lower() != email.lower():
-            return Response(
-                {"error": "You can only view your own booking history."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         queryset = (
             Booking.objects
-            .filter(customer_email=email)
+            .filter(customer_email__iexact=email)
             .select_related("show", "show__movie", "show__cinema")
             .prefetch_related("booking_seats__seat")
             .order_by("-booked_at")

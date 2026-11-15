@@ -1,0 +1,7 @@
+{
+  "task_id": "task-ticketiq-booking",
+  "task_description": "Complete real-world cinema ticket booking system for TicketIQ: model additions (Booking fields, Payment, BookingSeat), 13 new backend API endpoints (seat availability, holds, booking creation, payment verification, PDF tickets), 7 new frontend React pages (full booking flow from movie selection to confirmation), test suite, and IMPLEMENTATION.md.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

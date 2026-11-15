@@ -41,10 +41,9 @@ export default function Checkout({
   const rzpRef = useRef(null);
 
   const basePrice = Number(selectedShow.ticket_price || 0);
-  const CATEGORY_MULTIPLIER = { Silver: 1.0, Gold: 1.5, Premium: 2.0 };
+  // Use the price field returned by the hold API directly
   const total = heldSeats.reduce((sum, seat) => {
-    const mult = CATEGORY_MULTIPLIER[seat.category] || 1.0;
-    return sum + basePrice * mult;
+    return sum + Number(seat.price || 0);
   }, 0);
 
   function updateField(e) {
@@ -221,7 +220,7 @@ export default function Checkout({
             <div className="checkout-seat-chips">
               {heldSeats.map((seat) => (
                 <span key={seat.id} className="checkout-seat-chip">
-                  {seat.row}{seat.seat_number}
+                  {seat.label || `${seat.row || ""}${seat.seat_number || ""}`}
                   <span className="checkout-seat-cat">{seat.category}</span>
                 </span>
               ))}

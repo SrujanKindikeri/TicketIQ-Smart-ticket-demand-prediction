@@ -121,6 +121,10 @@ class BookingSeatSerializer(serializers.ModelSerializer):
 class BookingDetailSerializer(BookingSerializer):
     booking_seats = BookingSeatSerializer(many=True, read_only=True)
     payment = PaymentSerializer(read_only=True)
+    movie_title = serializers.CharField(source="show.movie.title", read_only=True)
+    cinema_name = serializers.CharField(source="show.cinema.name", read_only=True)
+    show_date = serializers.DateField(source="show.show_date", read_only=True)
+    show_time = serializers.TimeField(source="show.show_time", read_only=True)
 
     class Meta(BookingSerializer.Meta):
         fields = "__all__"

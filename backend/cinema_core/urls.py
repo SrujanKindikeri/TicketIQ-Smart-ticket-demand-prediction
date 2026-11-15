@@ -26,6 +26,11 @@ from .views_booking import (
     CinemaCapacityView,
 )
 
+from .views_auth import LoginView, LogoutView, AuthStatusView
+from .views_ml import MLPredictionsView, GeneratePredictionsView
+from .views_settings import AppSettingsView
+from .views_support import ContactView
+
 
 # =====================================================
 # API ROUTER
@@ -52,6 +57,21 @@ urlpatterns = [
         DashboardView.as_view(),
         name="dashboard",
     ),
+
+    # Auth
+    path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path("auth/status/", AuthStatusView.as_view(), name="auth-status"),
+
+    # ML predictions
+    path("ml/predictions/", MLPredictionsView.as_view(), name="ml-predictions"),
+    path("ml/predictions/generate/", GeneratePredictionsView.as_view(), name="ml-predictions-generate"),
+
+    # App settings
+    path("settings/", AppSettingsView.as_view(), name="app-settings"),
+
+    # Contact / support
+    path("contact/", ContactView.as_view(), name="contact"),
 
     # Show-specific seat availability (original admin view)
     path(
@@ -102,7 +122,7 @@ urlpatterns = [
         name="booking-verify",
     ),
 
-    # FEAT-002: Customer booking history (authenticated)
+    # FEAT-002: Customer booking history (AllowAny — email is the lookup key)
     path(
         "bookings/my/",
         MyBookingsView.as_view(),

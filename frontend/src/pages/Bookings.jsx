@@ -213,7 +213,7 @@ export default function Bookings() {
                       <span className="admin-bookings-time">{(booking.show_time || "").slice(0, 5)}</span>
                     </div>
                   </td>
-                  <td>{booking.total_seats ?? (booking.seats?.length ?? "—")}</td>
+                  <td>{booking.tickets_count ?? (booking.booking_seats?.length ?? "—")}</td>
                   <td className="admin-bookings-amount">{formatPrice(booking.total_amount)}</td>
                   <td>
                     <span className={`booking-status ${booking.status}`}>
@@ -284,8 +284,8 @@ export default function Bookings() {
                 <tr>
                   <th>Seats</th>
                   <td>
-                    {detail.seats
-                      ? detail.seats.map((s) => `${s.row || ""}${s.seat_number || s.seat || ""} (${s.category || ""})`).join(", ")
+                    {detail.booking_seats && detail.booking_seats.length > 0
+                      ? detail.booking_seats.map((bs) => `${bs.seat_label || ""} (${bs.category || ""})`).join(", ")
                       : "—"}
                   </td>
                 </tr>
