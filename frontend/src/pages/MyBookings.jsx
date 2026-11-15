@@ -46,12 +46,14 @@ export default function MyBookings() {
     }
   }
 
-  async function cancelBooking(id) {
+  async function cancelBooking(bookingReference) {
     if (!window.confirm("Cancel this booking?")) return;
-    setCancelling(id);
+    setCancelling(bookingReference);
     setError("");
     try {
-      await axios.post(`${API}bookings/${id}/cancel/`);
+      await axios.post(`${API}bookings/${bookingReference}/customer-cancel/`, {
+        customer_email: email.trim(),
+      });
       // Refresh
       const resp = await axios.get(`${API}bookings/my/?email=${encodeURIComponent(email.trim())}`);
       const data = Array.isArray(resp.data) ? resp.data : resp.data.results || [];
@@ -125,10 +127,10 @@ export default function MyBookings() {
             {canCancel && (
               <button
                 className="mybookings-cancel-btn"
-                onClick={() => cancelBooking(booking.id)}
-                disabled={cancelling === booking.id}
+                onClick={() => cancelBooking(booking.booking_reference)}
+                disabled={cancelling === booking.booking_reference}
               >
-                {cancelling === booking.id ? <RefreshCw size={12} className="mybookings-spinner" /> : <X size={13} />}
+                {cancelling === booking.booking_reference ? <RefreshCw size={12} className="mybookings-spinner" /> : <X size={13} />}
                 Cancel
               </button>
             )}

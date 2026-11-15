@@ -755,6 +755,69 @@ class AdminBookingStatsView(APIView):
 
 
 # =====================================================
+# CUSTOMER BOOKING CANCEL (AllowAny — ownership via email)
+# =====================================================
+
+class CustomerCancelBookingView(APIView):
+    """
+    POST /api/bookings/<booking_reference>/customer-cancel/
+    Body: {customer_email: "..."}
+    AllowAny — the customer proves ownership by supplying the email that
+    was used when the booking was created. If it matches, the booking is
+    cancelled and held seats are restored, identical to the admin cancel
+    action in BookingViewSet.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, booking_reference):
+        customer_email = request.data.get("customer_email", "").strip()
+
+        if not customer_email:
+            return Response(
+                {"error": "customer_email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        booking = get_object_or_404(
+            Booking.objects.select_related("show"),
+            booking_reference=booking_reference,
+        )
+
+        # Ownership check — customer must supply the same email used at booking time.
+        if booking.customer_email.lower() != customer_email.lower():
+            return Response(
+                {"error": "Email does not match the booking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if booking.status == Booking.Status.CANCELLED:
+            return Response({"message": "Booking is already cancelled."})
+
+        with transaction.atomic():
+            booking = Booking.objects.select_for_update().get(
+                pk=booking.pk
+            )
+            show = Show.objects.select_for_update().get(pk=booking.show_id)
+
+            booking.status = Booking.Status.CANCELLED
+            if booking.payment_status == "pending":
+                booking.payment_status = "failed"
+            booking.save(update_fields=["status", "payment_status"])
+
+            show.tickets_booked = max(0, show.tickets_booked - booking.tickets_count)
+            show.save(update_fields=["tickets_booked"])
+
+            # Release seat reservations and booking seat records.
+            SeatReservation.objects.filter(
+                booking=booking,
+                status=SeatReservation.Status.BOOKED,
+            ).delete()
+            BookingSeat.objects.filter(booking=booking).delete()
+
+        return Response({"message": "Booking cancelled and seats restored."})
+
+
+# =====================================================
 # CINEMA SEAT LIST (admin)
 # =====================================================
 

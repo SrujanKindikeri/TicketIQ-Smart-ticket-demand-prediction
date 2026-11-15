@@ -24,6 +24,7 @@ from .views_booking import (
     AdminBookingStatsView,
     CinemaSeatListView,
     CinemaCapacityView,
+    CustomerCancelBookingView,
 )
 
 from .views_auth import LoginView, LogoutView, AuthStatusView
@@ -120,6 +121,13 @@ urlpatterns = [
         "bookings/<str:booking_reference>/verify/",
         BookingVerifyView.as_view(),
         name="booking-verify",
+    ),
+
+    # Customer self-service cancel (AllowAny, ownership verified via email)
+    path(
+        "bookings/<str:booking_reference>/customer-cancel/",
+        CustomerCancelBookingView.as_view(),
+        name="booking-customer-cancel",
     ),
 
     # FEAT-002: Customer booking history (AllowAny — email is the lookup key)
