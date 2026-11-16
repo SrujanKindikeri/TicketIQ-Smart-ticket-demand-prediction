@@ -3,3 +3,8 @@
 venv/
 __pycache__/
 *.pyc
+
+# Generated datasets and trained models
+artifacts/models/*.joblib
+data/processed/*.csv
+data/processed/ml_ready/
