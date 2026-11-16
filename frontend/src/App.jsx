@@ -474,6 +474,10 @@ export default function App() {
   const [auth, setAuth] = useState({ authenticated: false, is_admin: false, username: null });
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // Data mode
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   // Booking flow state
   const [bookingStep, setBookingStep] = useState(null);
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -490,10 +494,17 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Show login modal when navigating to protected pages without auth
+  // Show login modal when navigating to protected pages without auth.
+  // Bookings and Predictions are only gated in Live Database mode; in Demo
+  // mode they use local dataset data and do not require authentication.
   useEffect(() => {
-    const protected_pages = ["Bookings", "Predictions", "Settings"];
-    if (protected_pages.includes(activePage) && !auth.authenticated) {
+    const alwaysProtected = ["Settings"];
+    const liveOnlyProtected = ["Bookings", "Predictions"];
+    const needsAuth =
+      alwaysProtected.includes(activePage) ||
+      (!isDemo && liveOnlyProtected.includes(activePage));
+
+    if (needsAuth && !auth.authenticated) {
       axios.get(`${API_BASE}auth/status/`)
         .then((resp) => {
           setAuth(resp.data);
@@ -501,7 +512,7 @@ export default function App() {
         })
         .catch(() => setShowLoginModal(true));
     }
-  }, [activePage]);
+  }, [activePage, isDemo]);
 
   function navigateTo(page) {
     setActivePage(page);
@@ -720,13 +731,13 @@ export default function App() {
           {activePage === "Shows" && <Shows />}
 
           {activePage === "Bookings" && (
-            auth.authenticated ? (
+            isDemo || auth.authenticated ? (
               <Bookings auth={auth} />
             ) : (
               <div className="auth-gate-panel">
                 <Lock size={32} className="auth-gate-icon" />
                 <h2>Admin access required</h2>
-                <p>The Bookings page is restricted to administrators.</p>
+                <p>The Bookings page is restricted to administrators in Live Database mode.</p>
                 <button
                   className="primary-button"
                   onClick={() => setShowLoginModal(true)}
@@ -739,13 +750,13 @@ export default function App() {
           )}
 
           {activePage === "Predictions" && (
-            auth.authenticated ? (
+            isDemo || auth.authenticated ? (
               <Predictions auth={auth} />
             ) : (
               <div className="auth-gate-panel">
                 <Lock size={32} className="auth-gate-icon" />
                 <h2>Admin access required</h2>
-                <p>The Predictions page is restricted to administrators.</p>
+                <p>The Predictions page is restricted to administrators in Live Database mode.</p>
                 <button
                   className="primary-button"
                   onClick={() => setShowLoginModal(true)}

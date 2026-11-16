@@ -4,7 +4,7 @@ import {
   Database, Search, Download, RefreshCw, ChevronLeft, ChevronRight, AlertTriangle,
 } from "lucide-react";
 import DataSourceBadge from "../components/DataSourceBadge";
-import { DATA_MODES } from "../context/DataModeContext";
+import { DATA_MODES, useDataMode } from "../context/DataModeContext";
 import "./DatasetExplorer.css";
 
 const API_BASE = "http://127.0.0.1:8000/api/dataset/";
@@ -15,6 +15,8 @@ function tagClass(source) {
 }
 
 export default function DatasetExplorer() {
+  const { mode } = useDataMode();
+
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -97,7 +99,7 @@ export default function DatasetExplorer() {
           <span className="dataset-explorer-eyebrow">DATA INTELLIGENCE</span>
           <h1>
             Dataset Explorer
-            <DataSourceBadge mode={DATA_MODES.DEMO} />
+            <DataSourceBadge mode={mode} />
           </h1>
           <p>Inspect, search, and download the raw datasets powering TicketIQ.</p>
         </div>
