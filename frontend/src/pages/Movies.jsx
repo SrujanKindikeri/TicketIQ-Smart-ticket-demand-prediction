@@ -12,9 +12,12 @@ import {
   Clapperboard,
   RefreshCw,
 } from "lucide-react";
+import { useDataMode, DATA_MODES } from "../context/DataModeContext";
+import DataSourceBadge from "../components/DataSourceBadge";
 import "./Movies.css";
 
-const API = "http://127.0.0.1:8000/api/movies/";
+const API_LIVE = "http://127.0.0.1:8000/api/movies/";
+const API_DEMO = "http://127.0.0.1:8000/api/dataset/movies/";
 
 const emptyMovie = {
   title: "",
@@ -36,17 +39,33 @@ export default function Movies() {
   const [form, setForm] = useState(emptyMovie);
   const [saving, setSaving] = useState(false);
 
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   async function fetchMovies() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await axios.get(API);
-      setMovies(response.data);
+      if (isDemo) {
+        const params = { page: 1, page_size: 200 };
+        const response = await axios.get(API_DEMO, { params });
+        const results = response.data.results || [];
+        setMovies(results.map((m) => ({
+          id: m.id,
+          title: m.title,
+          genre: m.genre,
+          release_year: m.year,
+          average_rating: m.avg_rating,
+          rating_count: m.rating_count,
+          is_active: true,
+        })));
+      } else {
+        const response = await axios.get(API_LIVE);
+        setMovies(Array.isArray(response.data) ? response.data : response.data.results || []);
+      }
     } catch {
-      setError(
-        "Unable to load movies. Make sure the Django backend is running."
-      );
+      setError("Unable to load movies. Make sure the Django backend is running.");
     } finally {
       setLoading(false);
     }
@@ -54,7 +73,7 @@ export default function Movies() {
 
   useEffect(() => {
     fetchMovies();
-  }, []);
+  }, [mode]);
 
   const genres = useMemo(
     () => [
@@ -166,14 +185,19 @@ export default function Movies() {
       <div className="movies-heading">
         <div>
           <span className="movies-eyebrow">CONTENT MANAGEMENT</span>
-          <h1>Movies</h1>
-          <p>Manage your cinema movie catalog.</p>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            Movies
+            <DataSourceBadge mode={mode} />
+          </h1>
+          <p>{isDemo ? "Browsing MovieLens dataset (read-only)." : "Manage your cinema movie catalog."}</p>
         </div>
 
-        <button className="movie-primary-btn" onClick={openCreateForm}>
-          <Plus size={17} />
-          Add movie
-        </button>
+        {!isDemo && (
+          <button className="movie-primary-btn" onClick={openCreateForm}>
+            <Plus size={17} />
+            Add movie
+          </button>
+        )}
       </div>
 
       <div className="movie-summary">
@@ -292,17 +316,24 @@ export default function Movies() {
                 </div>
 
                 <div className="movie-card-actions">
-                  <button onClick={() => openEditForm(movie)}>
-                    <Pencil size={14} />
-                    Edit
-                  </button>
-                  <button
-                    className="delete-action"
-                    onClick={() => deleteMovie(movie)}
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </button>
+                  {!isDemo && (
+                    <button onClick={() => openEditForm(movie)}>
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+                  )}
+                  {!isDemo && (
+                    <button
+                      className="delete-action"
+                      onClick={() => deleteMovie(movie)}
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  )}
+                  {isDemo && (
+                    <span style={{ fontSize: 11, color: "#b8700a", fontWeight: 600 }}>Read-only (demo)</span>
+                  )}
                 </div>
               </div>
             </article>
@@ -310,7 +341,7 @@ export default function Movies() {
         </div>
       )}
 
-      {showForm && (
+      {showForm && !isDemo && (
         <div
           className="movie-modal-backdrop"
           onMouseDown={(event) => {

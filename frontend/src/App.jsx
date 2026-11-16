@@ -24,7 +24,12 @@ import {
   ShoppingBag,
   Lock,
   LogIn,
+  Database,
 } from "lucide-react";
+
+import { useDataMode, DATA_MODES } from "./context/DataModeContext";
+import DataModeSwitch from "./components/DataModeSwitch";
+import DataSourceBadge from "./components/DataSourceBadge";
 
 import Movies from "./pages/Movies";
 import Cinemas from "./pages/Cinemas";
@@ -39,6 +44,7 @@ import Bookings from "./pages/Bookings";
 import Predictions from "./pages/Predictions";
 import SettingsPage from "./pages/Settings";
 import HelpSupport from "./pages/HelpSupport";
+import DatasetExplorer from "./pages/DatasetExplorer";
 
 import "./App.css";
 
@@ -51,6 +57,7 @@ const navigation = [
   { name: "Shows", icon: CalendarDays },
   { name: "Bookings", icon: Ticket },
   { name: "Predictions", icon: TrendingUp },
+  { name: "Dataset Explorer", icon: Database },
   { name: "Book Tickets", icon: ShoppingBag },
   { name: "My Bookings", icon: Ticket },
 ];
@@ -150,18 +157,27 @@ function Dashboard() {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
 
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   async function fetchDashboard() {
     setLoading(true);
     setError("");
 
+    const url = isDemo
+      ? "http://127.0.0.1:8000/api/dataset/dashboard/"
+      : "http://127.0.0.1:8000/api/dashboard/";
+
     try {
-      const response = await axios.get(`${API_BASE}dashboard/`);
+      const response = await axios.get(url);
       setData(response.data);
       setConnected(true);
     } catch (err) {
       setConnected(false);
       setError(
-        "Unable to connect to the Django backend. Check that the server is running."
+        isDemo
+          ? "Unable to load demo dataset stats. Check that the Django backend is running."
+          : "Unable to connect to the Django backend. Check that the server is running."
       );
     } finally {
       setLoading(false);
@@ -170,7 +186,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [mode]);
 
   const stats = [
     {
@@ -226,7 +242,10 @@ function Dashboard() {
       <div className="page-heading">
         <div>
           <span className="eyebrow">YOUR CINEMA INTELLIGENCE</span>
-          <h1>{greeting}.</h1>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {greeting}.
+            <DataSourceBadge mode={mode} />
+          </h1>
           <p>Here's what's happening across your cinema network.</p>
         </div>
 
@@ -392,7 +411,7 @@ function Dashboard() {
 
           <div className="system-row">
             Data source
-            <span>PostgreSQL</span>
+            <span>{isDemo ? "Dataset Demo (Synthetic)" : "PostgreSQL"}</span>
           </div>
 
           <button
@@ -527,6 +546,7 @@ export default function App() {
     "Help & Support": "Help & Support",
     "Book Tickets": "Book Tickets",
     "My Bookings": "My Bookings",
+    "Dataset Explorer": "Dataset Explorer",
   };
 
   return (
@@ -670,6 +690,10 @@ export default function App() {
           </div>
 
           <div className="topbar-actions">
+            <DataModeSwitch />
+
+            <div className="topbar-divider" />
+
             <button className="icon-button" aria-label="Search">
               <Search size={20} />
             </button>
@@ -753,6 +777,8 @@ export default function App() {
           )}
 
           {activePage === "Help & Support" && <HelpSupport />}
+
+          {activePage === "Dataset Explorer" && <DatasetExplorer />}
 
           {activePage === "My Bookings" && <MyBookings />}
 

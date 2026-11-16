@@ -18,9 +18,12 @@ import {
   IndianRupee,
   AlertCircle,
 } from "lucide-react";
+import { useDataMode, DATA_MODES } from "../context/DataModeContext";
+import DataSourceBadge from "../components/DataSourceBadge";
 import "./Shows.css";
 
 const API = "http://127.0.0.1:8000/api/";
+const API_DEMO_SHOWS = "http://127.0.0.1:8000/api/dataset/shows/";
 
 const emptyForm = {
   cinema: "",
@@ -92,21 +95,31 @@ export default function Shows() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   async function fetchData() {
     setLoading(true);
     setError("");
 
     try {
-      const [showResponse, cinemaResponse, movieResponse] =
-        await Promise.all([
-          axios.get(`${API}shows/`),
-          axios.get(`${API}cinemas/`),
-          axios.get(`${API}movies/`),
-        ]);
+      if (isDemo) {
+        const response = await axios.get(API_DEMO_SHOWS, { params: { page: 1, page_size: 200 } });
+        setShows(response.data.results || []);
+        setCinemas([]);
+        setMovies([]);
+      } else {
+        const [showResponse, cinemaResponse, movieResponse] =
+          await Promise.all([
+            axios.get(`${API}shows/`),
+            axios.get(`${API}cinemas/`),
+            axios.get(`${API}movies/`),
+          ]);
 
-      setShows(getList(showResponse.data));
-      setCinemas(getList(cinemaResponse.data));
-      setMovies(getList(movieResponse.data));
+        setShows(getList(showResponse.data));
+        setCinemas(getList(cinemaResponse.data));
+        setMovies(getList(movieResponse.data));
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -116,7 +129,7 @@ export default function Shows() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [mode]);
 
   const filteredShows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -250,14 +263,19 @@ export default function Shows() {
       <div className="shows-heading">
         <div>
           <span className="shows-eyebrow">SCHEDULE MANAGEMENT</span>
-          <h1>Shows</h1>
-          <p>Manage cinema schedules, showtimes and ticket capacity.</p>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            Shows
+            <DataSourceBadge mode={mode} />
+          </h1>
+          <p>{isDemo ? "Browsing synthetic show dataset (read-only)." : "Manage cinema schedules, showtimes and ticket capacity."}</p>
         </div>
 
-        <button className="shows-primary-button" onClick={openCreateForm}>
-          <Plus size={18} />
-          Add show
-        </button>
+        {!isDemo && (
+          <button className="shows-primary-button" onClick={openCreateForm}>
+            <Plus size={18} />
+            Add show
+          </button>
+        )}
       </div>
 
       {error && (
@@ -458,22 +476,28 @@ export default function Shows() {
 
                     <td>
                       <div className="shows-actions">
-                        <button
-                          onClick={() => openEditForm(show)}
-                          title="Edit show"
-                          aria-label="Edit show"
-                        >
-                          <Pencil size={16} />
-                        </button>
-
-                        <button
-                          className="shows-delete"
-                          onClick={() => deleteShow(show)}
-                          title="Delete show"
-                          aria-label="Delete show"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {!isDemo && (
+                          <button
+                            onClick={() => openEditForm(show)}
+                            title="Edit show"
+                            aria-label="Edit show"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        )}
+                        {!isDemo && (
+                          <button
+                            className="shows-delete"
+                            onClick={() => deleteShow(show)}
+                            title="Delete show"
+                            aria-label="Delete show"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                        {isDemo && (
+                          <span style={{ fontSize: 11, color: "#b8700a", fontWeight: 600 }}>Read-only</span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -484,7 +508,7 @@ export default function Shows() {
         </div>
       )}
 
-      {showForm && (
+      {showForm && !isDemo && (
         <div
           className="shows-modal-overlay"
           onMouseDown={(event) => {

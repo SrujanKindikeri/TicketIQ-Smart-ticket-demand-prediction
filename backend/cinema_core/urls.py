@@ -31,6 +31,17 @@ from .views_auth import LoginView, LogoutView, AuthStatusView
 from .views_ml import MLPredictionsView, GeneratePredictionsView
 from .views_settings import AppSettingsView
 from .views_support import ContactView
+from .views_dataset import (
+    DatasetListView,
+    DatasetPreviewView,
+    DatasetDownloadView,
+    DemoDashboardView,
+    DemoMoviesView,
+    DemoCinemasView,
+    DemoShowsView,
+    DemoBookingsView,
+    DemoPredictionsView,
+)
 
 
 # =====================================================
@@ -52,6 +63,17 @@ router.register("seats", CinemaSeatViewSet, basename="seat")
 # =====================================================
 
 urlpatterns = [
+    # Dataset Demo endpoints (must come before router.urls to avoid conflict)
+    path("dataset/", DatasetListView.as_view(), name="dataset-list"),
+    path("dataset/dashboard/", DemoDashboardView.as_view(), name="dataset-dashboard"),
+    path("dataset/movies/", DemoMoviesView.as_view(), name="dataset-movies"),
+    path("dataset/cinemas/", DemoCinemasView.as_view(), name="dataset-cinemas"),
+    path("dataset/shows/", DemoShowsView.as_view(), name="dataset-shows"),
+    path("dataset/bookings/", DemoBookingsView.as_view(), name="dataset-bookings"),
+    path("dataset/predictions/", DemoPredictionsView.as_view(), name="dataset-predictions"),
+    path("dataset/<str:dataset_id>/preview/", DatasetPreviewView.as_view(), name="dataset-preview"),
+    path("dataset/<str:dataset_id>/download/", DatasetDownloadView.as_view(), name="dataset-download"),
+
     # Dashboard
     path(
         "dashboard/",

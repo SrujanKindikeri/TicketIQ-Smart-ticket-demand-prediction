@@ -6,9 +6,12 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { useDataMode, DATA_MODES } from "../context/DataModeContext";
+import DataSourceBadge from "../components/DataSourceBadge";
 import "./Predictions.css";
 
 const API = "http://127.0.0.1:8000/api/";
+const API_DEMO_PREDICTIONS = "http://127.0.0.1:8000/api/dataset/predictions/";
 
 function formatPrice(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -22,20 +25,29 @@ export default function Predictions() {
   const [error, setError] = useState("");
   const [genMessage, setGenMessage] = useState("");
 
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   async function fetchPredictions() {
     setLoading(true);
     setError("");
     setGenMessage("");
     try {
-      const [predResp, histResp] = await Promise.all([
-        axios.get(`${API}ml/predictions/`),
-        axios.get(`${API}predictions/?page_size=10`),
-      ]);
-      setData(predResp.data);
-      const histData = Array.isArray(histResp.data)
-        ? histResp.data
-        : histResp.data.results || [];
-      setHistory(histData);
+      if (isDemo) {
+        const predResp = await axios.get(API_DEMO_PREDICTIONS);
+        setData(predResp.data);
+        setHistory([]);
+      } else {
+        const [predResp, histResp] = await Promise.all([
+          axios.get(`${API}ml/predictions/`),
+          axios.get(`${API}predictions/?page_size=10`),
+        ]);
+        setData(predResp.data);
+        const histData = Array.isArray(histResp.data)
+          ? histResp.data
+          : histResp.data.results || [];
+        setHistory(histData);
+      }
     } catch (err) {
       const d = err.response?.data;
       setError(d?.detail || d?.error || d?.reason || "Unable to load predictions.");
@@ -45,6 +57,7 @@ export default function Predictions() {
   }
 
   async function generatePredictions() {
+    if (isDemo) return;
     setGenerating(true);
     setGenMessage("");
     setError("");
@@ -62,7 +75,7 @@ export default function Predictions() {
 
   useEffect(() => {
     fetchPredictions();
-  }, []);
+  }, [mode]);
 
   const isUnavailable = data?.status === "unavailable";
   const predictions = data?.predictions || [];
@@ -80,8 +93,11 @@ export default function Predictions() {
       <div className="predictions-heading">
         <div>
           <span className="predictions-eyebrow">ML FORECASTING</span>
-          <h1>Demand Predictions</h1>
-          <p>Ticket demand forecasts from trained machine learning models.</p>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            Demand Predictions
+            <DataSourceBadge mode={mode} />
+          </h1>
+          <p>{isDemo ? "Predictions derived from the synthetic cinema dataset." : "Ticket demand forecasts from trained machine learning models."}</p>
         </div>
         <div className="predictions-heading-actions">
           <button
@@ -92,16 +108,29 @@ export default function Predictions() {
           >
             <RefreshCw size={17} className={loading ? "predictions-spin" : ""} />
           </button>
-          <button
-            className="predictions-generate-btn"
-            onClick={generatePredictions}
-            disabled={generating || loading}
-          >
-            {generating ? <RefreshCw size={15} className="predictions-spin" /> : <TrendingUp size={15} />}
-            {generating ? "Generating..." : "Generate Prediction"}
-          </button>
+          {!isDemo && (
+            <button
+              className="predictions-generate-btn"
+              onClick={generatePredictions}
+              disabled={generating || loading}
+            >
+              {generating ? <RefreshCw size={15} className="predictions-spin" /> : <TrendingUp size={15} />}
+              {generating ? "Generating..." : "Generate Prediction"}
+            </button>
+          )}
         </div>
       </div>
+
+      {isDemo && (
+        <div className="predictions-disclaimer" style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "10px 16px",
+          background: "rgba(245, 166, 35, 0.08)", border: "1px solid rgba(245, 166, 35, 0.3)",
+          borderRadius: 10, marginBottom: 20, fontSize: 13, color: "#b8700a"
+        }}>
+          <AlertTriangle size={15} />
+          <span>These predictions are derived from a <strong>synthetic dataset</strong> and do not represent real-world accuracy. For informational purposes only.</span>
+        </div>
+      )}
 
       {genMessage && <div className="predictions-success">{genMessage}</div>}
       {error && (

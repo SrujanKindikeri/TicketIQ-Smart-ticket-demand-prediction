@@ -13,9 +13,12 @@ import {
   RefreshCw,
   Clapperboard,
 } from "lucide-react";
+import { useDataMode, DATA_MODES } from "../context/DataModeContext";
+import DataSourceBadge from "../components/DataSourceBadge";
 import "./Cinemas.css";
 
-const API = "http://127.0.0.1:8000/api/cinemas/";
+const API_LIVE = "http://127.0.0.1:8000/api/cinemas/";
+const API_DEMO = "http://127.0.0.1:8000/api/dataset/cinemas/";
 
 const emptyCinema = {
   name: "",
@@ -36,17 +39,23 @@ export default function Cinemas() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyCinema);
 
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   async function fetchCinemas() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await axios.get(API);
-      setCinemas(response.data);
+      if (isDemo) {
+        const response = await axios.get(API_DEMO);
+        setCinemas(response.data.results || []);
+      } else {
+        const response = await axios.get(API_LIVE);
+        setCinemas(Array.isArray(response.data) ? response.data : response.data.results || []);
+      }
     } catch (err) {
-      setError(
-        "Unable to load cinemas. Check your Django API and backend server."
-      );
+      setError("Unable to load cinemas. Check your Django API and backend server.");
     } finally {
       setLoading(false);
     }
@@ -54,7 +63,7 @@ export default function Cinemas() {
 
   useEffect(() => {
     fetchCinemas();
-  }, []);
+  }, [mode]);
 
   const cities = useMemo(
     () => [
@@ -118,6 +127,7 @@ export default function Cinemas() {
 
   async function saveCinema(event) {
     event.preventDefault();
+    if (isDemo) return;
     setSaving(true);
     setError("");
 
@@ -131,9 +141,9 @@ export default function Cinemas() {
 
     try {
       if (editingId !== null) {
-        await axios.put(`${API}${editingId}/`, payload);
+        await axios.put(`${API_LIVE}${editingId}/`, payload);
       } else {
-        await axios.post(API, payload);
+        await axios.post(API_LIVE, payload);
       }
 
       setShowForm(false);
@@ -155,6 +165,7 @@ export default function Cinemas() {
   }
 
   async function deleteCinema(cinema) {
+    if (isDemo) return;
     const confirmed = window.confirm(
       `Delete ${cinema.name}? This action may be blocked if it has existing shows.`
     );
@@ -162,7 +173,7 @@ export default function Cinemas() {
     if (!confirmed) return;
 
     try {
-      await axios.delete(`${API}${cinema.id}/`);
+      await axios.delete(`${API_LIVE}${cinema.id}/`);
       await fetchCinemas();
     } catch (err) {
       setError(
@@ -178,17 +189,19 @@ export default function Cinemas() {
       <div className="cinemas-heading">
         <div>
           <span className="cinemas-eyebrow">NETWORK MANAGEMENT</span>
-          <h1>Cinemas</h1>
-          <p>Manage your cinema locations and seating capacity.</p>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            Cinemas
+            <DataSourceBadge mode={mode} />
+          </h1>
+          <p>{isDemo ? "Browsing synthetic cinema dataset (read-only)." : "Manage your cinema locations and seating capacity."}</p>
         </div>
 
-        <button
-          className="cinema-primary-btn"
-          onClick={openCreateForm}
-        >
-          <Plus size={17} />
-          Add cinema
-        </button>
+        {!isDemo && (
+          <button className="cinema-primary-btn" onClick={openCreateForm}>
+            <Plus size={17} />
+            Add cinema
+          </button>
+        )}
       </div>
 
       <div className="cinema-stats">
@@ -327,18 +340,24 @@ export default function Cinemas() {
                 </div>
 
                 <div className="cinema-card-actions">
-                  <button onClick={() => openEditForm(cinema)}>
-                    <Pencil size={14} />
-                    Edit
-                  </button>
-
-                  <button
-                    className="cinema-delete-action"
-                    onClick={() => deleteCinema(cinema)}
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </button>
+                  {!isDemo && (
+                    <button onClick={() => openEditForm(cinema)}>
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+                  )}
+                  {!isDemo && (
+                    <button
+                      className="cinema-delete-action"
+                      onClick={() => deleteCinema(cinema)}
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  )}
+                  {isDemo && (
+                    <span style={{ fontSize: 11, color: "#b8700a", fontWeight: 600 }}>Read-only (demo)</span>
+                  )}
                 </div>
               </div>
             </article>
@@ -346,7 +365,7 @@ export default function Cinemas() {
         </div>
       )}
 
-      {showForm && (
+      {showForm && !isDemo && (
         <div
           className="cinema-modal-backdrop"
           onMouseDown={(event) => {

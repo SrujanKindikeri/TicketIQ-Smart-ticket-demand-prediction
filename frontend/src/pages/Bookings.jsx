@@ -4,9 +4,12 @@ import {
   Ticket, Search, RefreshCw, Eye, X,
   Film, Building2, CalendarDays
 } from "lucide-react";
+import { useDataMode, DATA_MODES } from "../context/DataModeContext";
+import DataSourceBadge from "../components/DataSourceBadge";
 import "./Bookings.css";
 
 const API = "http://127.0.0.1:8000/api/";
+const API_DEMO = "http://127.0.0.1:8000/api/dataset/bookings/";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -30,17 +33,33 @@ export default function Bookings() {
   const [detail, setDetail] = useState(null);
   const [cancelling, setCancelling] = useState(null);
 
+  const { mode } = useDataMode();
+  const isDemo = mode === DATA_MODES.DEMO;
+
   async function fetchAll() {
     setLoading(true);
     setError("");
     try {
-      const [bookingsResp, statsResp] = await Promise.all([
-        axios.get(`${API}admin/bookings/`, { withCredentials: true }),
-        axios.get(`${API}admin/bookings/stats/`, { withCredentials: true }),
-      ]);
-      const data = Array.isArray(bookingsResp.data) ? bookingsResp.data : bookingsResp.data.results || [];
-      setBookings(data);
-      setStats(statsResp.data);
+      if (isDemo) {
+        const response = await axios.get(API_DEMO, { params: { page: 1, page_size: 200 } });
+        const data = response.data;
+        setBookings(data.results || []);
+        setStats(data.stats ? {
+          total_bookings: data.stats.total_bookings,
+          confirmed_bookings: data.stats.total_bookings,
+          cancelled_bookings: 0,
+          pending_bookings: 0,
+          total_revenue: data.stats.total_revenue,
+        } : null);
+      } else {
+        const [bookingsResp, statsResp] = await Promise.all([
+          axios.get(`${API}admin/bookings/`, { withCredentials: true }),
+          axios.get(`${API}admin/bookings/stats/`, { withCredentials: true }),
+        ]);
+        const data = Array.isArray(bookingsResp.data) ? bookingsResp.data : bookingsResp.data.results || [];
+        setBookings(data);
+        setStats(statsResp.data);
+      }
     } catch (err) {
       const data = err.response?.data;
       setError(data?.detail || data?.error || "Unable to load bookings. Ensure you are logged in as admin.");
@@ -51,7 +70,7 @@ export default function Bookings() {
 
   useEffect(() => {
     fetchAll();
-  }, []);
+  }, [mode]);
 
   async function cancelBooking(booking) {
     if (!window.confirm(`Cancel booking ${booking.booking_reference}?`)) return;
@@ -86,8 +105,11 @@ export default function Bookings() {
       <div className="admin-bookings-heading">
         <div>
           <span className="admin-bookings-eyebrow">BOOKING MANAGEMENT</span>
-          <h1>Bookings</h1>
-          <p>Manage and review all cinema bookings.</p>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            Bookings
+            <DataSourceBadge mode={mode} />
+          </h1>
+          <p>{isDemo ? "Browsing synthetic booking data (read-only)." : "Manage and review all cinema bookings."}</p>
         </div>
         <button className="admin-bookings-refresh-btn" onClick={fetchAll} disabled={loading} title="Refresh">
           <RefreshCw size={17} className={loading ? "admin-bookings-spinner" : ""} />
@@ -169,6 +191,48 @@ export default function Bookings() {
         </div>
       ) : (
         <div className="admin-bookings-table-wrap">
+          {isDemo ? (
+            <table className="admin-bookings-table">
+              <thead>
+                <tr>
+                  <th>Movie</th>
+                  <th>Cinema</th>
+                  <th>Date / Time</th>
+                  <th>Tickets Booked</th>
+                  <th>Ticket Price</th>
+                  <th>Revenue</th>
+                  <th>Occupancy</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((booking) => (
+                  <tr key={booking.id}>
+                    <td>
+                      <div className="admin-bookings-movie-cell">
+                        <div className="admin-bookings-cell-icon"><Film size={16} /></div>
+                        <strong>{booking.movie_title || "—"}</strong>
+                      </div>
+                    </td>
+                    <td>{booking.cinema_name || "—"}</td>
+                    <td>
+                      <div>
+                        <strong>{formatDate(booking.show_date)}</strong>
+                        <span className="admin-bookings-time">{(booking.show_time || "").slice(0, 5)}</span>
+                      </div>
+                    </td>
+                    <td>{booking.tickets_booked ?? "—"}</td>
+                    <td>{formatPrice(booking.ticket_price)}</td>
+                    <td className="admin-bookings-amount">{formatPrice(booking.revenue)}</td>
+                    <td>{booking.occupancy_rate != null ? `${booking.occupancy_rate}%` : "—"}</td>
+                    <td>
+                      <span className="booking-status confirmed">confirmed (simulated)</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
           <table className="admin-bookings-table">
             <thead>
               <tr>
@@ -252,6 +316,7 @@ export default function Bookings() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       )}
 
