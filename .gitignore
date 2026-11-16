@@ -8,3 +8,8 @@ __pycache__/
 artifacts/models/*.joblib
 data/processed/*.csv
 data/processed/ml_ready/
+
+# Generated datasets and models
+artifacts/models/*.joblib
+data/processed/*.csv
+data/processed/ml_ready/
