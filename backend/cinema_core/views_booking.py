@@ -618,8 +618,14 @@ class MyBookingsView(APIView):
     """
     GET /api/bookings/my/?email=<email>
     Returns booking history for the given email, ordered newest-first.
-    Permission is AllowAny — customer auth is handled at the application layer
-    (the email parameter itself is the lookup key; customers only know their own email).
+
+    Auth rules:
+    - Anonymous callers: AllowAny — email is the ownership proof (customers
+      only know their own email).
+    - Authenticated callers (session-login or token): the requested email
+      must match request.user.email. If it does not, return 403. This prevents
+      a logged-in admin or another user from querying a different customer's
+      bookings through this endpoint.
     """
     permission_classes = [AllowAny]
 
@@ -631,6 +637,17 @@ class MyBookingsView(APIView):
                 {"error": "email query parameter is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # When the caller is authenticated, enforce that the queried email
+        # matches their own account email. Admin users are exempt so they can
+        # look up any customer — but admin lookups should go through
+        # /api/admin/bookings/ instead.
+        if request.user and request.user.is_authenticated:
+            if not request.user.is_staff and email.lower() != (request.user.email or "").lower():
+                return Response(
+                    {"error": "You may only view your own bookings."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         queryset = (
             Booking.objects
